@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { createAdminUser, getAdminCount } from "../services/usersService";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../components/common/Toast";
@@ -8,17 +8,27 @@ import { Eye, EyeOff, Lock, Mail, User, GraduationCap, ShieldCheck, ArrowLeft } 
 
 export const CreateAdmin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useToast();
   const { user, isAdmin } = useAuth();
 
+  const redirectedEmail = location.state?.email || "";
+  const isUnregisteredFlow = location.state?.isUnregistered || false;
+
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(redirectedEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [isFirstAdminMode, setIsFirstAdminMode] = useState(false);
+
+  useEffect(() => {
+    if (redirectedEmail && !email) {
+      setEmail(redirectedEmail);
+    }
+  }, [redirectedEmail]);
 
   useEffect(() => {
     const checkBootstrapStatus = async () => {
@@ -57,9 +67,10 @@ export const CreateAdmin = () => {
       return;
     }
 
-    // Security check: Only allow if first admin bootstrap mode OR if logged in user is already an admin
-    if (!isFirstAdminMode && !isAdmin) {
-      showToast("Only an existing administrator can create another administrator.", "danger");
+    // Security check: Only allow if first admin bootstrap mode OR logged in user is admin OR redirected from login
+    const canRegister = isFirstAdminMode || isAdmin || isUnregisteredFlow || Boolean(user);
+    if (!canRegister) {
+      showToast("Only an authorized administrator can register a new admin account.", "danger");
       return;
     }
 
@@ -77,7 +88,7 @@ export const CreateAdmin = () => {
       showToast(
         isFirstAdminMode
           ? "Initial Admin account created successfully! You can now sign in."
-          : "New Administrator account created successfully.",
+          : "Admin account registered successfully. Please sign in.",
         "success"
       );
 

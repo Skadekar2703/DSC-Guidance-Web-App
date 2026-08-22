@@ -161,14 +161,15 @@ export const useSupabaseCollection = (collectionName, options = {}) => {
 
     fetchData();
 
-    // Subscribe to Realtime postgres_changes
+    // Subscribe to Realtime postgres_changes with a stable channel identifier
+    const channelName = `rt_${tableName}_${Math.floor(Date.now() / 1000)}`;
     const channel = supabase
-      .channel(`public:${tableName}:${Math.random()}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: tableName },
         () => {
-          fetchData();
+          if (isMounted) fetchData();
         }
       )
       .subscribe();

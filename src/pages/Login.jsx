@@ -49,26 +49,17 @@ export const Login = () => {
       console.log("[AUTH] Supabase auth successful, fetching profile for UID:", user.id);
       const record = await getAdminRecord(user.id);
       
-      if (!record) {
-        console.log("[AUTH] Rejecting: Profile record does not exist");
-        await signOutUser();
-        showToast("You do not have permission to access the admin panel.", "danger");
-        setLoading(false);
-        return;
-      }
-
-      if (record.role !== "admin") {
-        console.log("[AUTH] Rejecting: User role is", record.role);
-        await signOutUser();
-        showToast("You do not have permission to access the admin panel.", "danger");
-        setLoading(false);
-        return;
-      }
-
-      if (record.active !== true) {
-        console.log("[AUTH] Rejecting: Account is inactive");
-        await signOutUser();
-        showToast("Your admin account is currently inactive.", "danger");
+      // If user is authenticated in Supabase but NOT registered/authorized as an active admin
+      if (!record || record.role !== "admin" || record.active !== true) {
+        console.log("[AUTH] User is not an authorized active admin. Redirecting to admin registration flow.");
+        showToast("Account authenticated, but admin registration is required.", "info");
+        navigate("/create-admin", {
+          state: {
+            email: user.email,
+            userId: user.id,
+            isUnregistered: true,
+          },
+        });
         setLoading(false);
         return;
       }
@@ -91,8 +82,6 @@ export const Login = () => {
         errMsg = "Please verify your email address before signing in.";
       } else if (error.message?.includes("session_expired") || error.message?.includes("JWT expired")) {
         errMsg = "Your session has expired. Please sign in again.";
-      } else if (error.message?.includes("permission") || error.message?.includes("authorized")) {
-        errMsg = "You do not have permission to access the admin panel.";
       }
 
       showToast(errMsg, "danger");
