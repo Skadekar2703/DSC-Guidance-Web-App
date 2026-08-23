@@ -30,6 +30,9 @@ export const normalizeRow = (row) => {
   const createdAt = row.created_at ? new Date(row.created_at) : new Date();
   const seconds = Math.floor(createdAt.getTime() / 1000);
 
+  const resolvedIcon = row.icon_name || row.iconName || row.icon_key || row.iconKey || row.icon || "book";
+  const resolvedColor = row.background_color || row.backgroundColor || row.icon_color || row.iconColor || row.brand_color || row.color || "#EDE7F6";
+
   return {
     ...row,
     id: row.id,
@@ -40,7 +43,11 @@ export const normalizeRow = (row) => {
     chapterId: row.chapter_id || row.chapterId || null,
     classId: row.class_id || row.classId || null,
     displayOrder: row.display_order ?? row.displayOrder ?? 0,
-    color: row.brand_color || row.color || "#16A34A",
+    color: resolvedColor,
+    iconColor: resolvedColor,
+    icon_color: resolvedColor,
+    backgroundColor: resolvedColor,
+    background_color: resolvedColor,
     coverImage: row.cover_image || row.coverImage || "",
     active: row.is_published ?? row.is_active ?? row.active ?? true,
     published: row.is_published ?? row.published ?? true,
@@ -60,8 +67,11 @@ export const normalizeRow = (row) => {
     marks: row.total_marks ?? row.marks ?? 0,
     resourceType: row.resource_type || row.resourceType || "PDF",
     thumbnailUrl: row.thumbnail_url || row.thumbnailUrl || "",
-    logoUrl: row.logo_url || row.logoUrl || null,
-    logo_url: row.logo_url || row.logoUrl || null,
+    iconName: resolvedIcon,
+    icon_name: resolvedIcon,
+    iconKey: resolvedIcon,
+    icon_key: resolvedIcon,
+    icon: resolvedIcon,
     bannerUrl: row.banner_url || row.bannerUrl || null,
     banner_url: row.banner_url || row.bannerUrl || null,
     role: row.role || "tutor",

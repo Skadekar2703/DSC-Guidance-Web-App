@@ -1,12 +1,29 @@
 import { supabase } from "../lib/supabase";
 
+/**
+ * Safely inserts a new subject into Supabase.
+ * Stores icon_name and icon_color without icon image uploads.
+ * Automatically retries omitting columns if Supabase schema has not been updated with new migration columns yet.
+ */
 export const addSubject = async (data) => {
-  const payload = {
+  const iconNameVal = data.icon_name ?? data.iconName ?? data.icon_key ?? data.iconKey ?? data.icon ?? "book";
+  const bgColorVal = data.background_color ?? data.backgroundColor ?? data.icon_color ?? data.iconColor ?? "#EDE7F6";
+  const activeVal = data.active !== undefined ? Boolean(data.active) : Boolean(data.is_active ?? data.is_published ?? true);
+
+  let payload = {
     name: data.name,
     description: data.description || "",
     display_order: Number(data.displayOrder ?? data.display_order ?? 0),
-    is_published: data.active !== undefined ? Boolean(data.active) : Boolean(data.is_published ?? true),
-    logo_url: data.logo_url ?? data.logoUrl ?? null,
+    is_active: activeVal,
+    is_published: activeVal,
+    icon_name: iconNameVal,
+    icon_key: iconNameVal,
+    icon: iconNameVal,
+    background_color: bgColorVal,
+    icon_color: bgColorVal,
+    color: bgColorVal,
+    subject_type: data.subject_type ?? data.subjectType ?? "class_based",
+    class_range: data.class_range ?? data.classRange ?? null,
     banner_url: data.banner_url ?? data.bannerUrl ?? null,
   };
 
@@ -14,34 +31,101 @@ export const addSubject = async (data) => {
     payload.id = data.id;
   }
 
-  const { data: result, error } = await supabase
+  let { data: result, error } = await supabase
     .from("subjects")
     .insert([payload])
     .select()
     .single();
 
+  // Handle missing columns gracefully if migration script has not been executed yet in Supabase
+  while (error && error.message && error.message.includes("Could not find the")) {
+    const match = error.message.match(/Could not find the '([^']+)' column/);
+    if (match && match[1] && payload[match[1]] !== undefined) {
+      const missingCol = match[1];
+      console.warn(`Supabase schema cache missing column '${missingCol}'. Omitting '${missingCol}' and retrying insert...`);
+      delete payload[missingCol];
+
+      const retryRes = await supabase
+        .from("subjects")
+        .insert([payload])
+        .select()
+        .single();
+
+      result = retryRes.data;
+      error = retryRes.error;
+    } else {
+      break;
+    }
+  }
+
   if (error) throw error;
   return result;
 };
 
+/**
+ * Safely updates an existing subject in Supabase.
+ * Automatically retries omitting columns if Supabase schema cache has missing columns.
+ */
 export const updateSubject = async (id, data) => {
   const payload = {};
   if (data.name !== undefined) payload.name = data.name;
   if (data.description !== undefined) payload.description = data.description;
   if (data.displayOrder !== undefined || data.display_order !== undefined) payload.display_order = Number(data.displayOrder ?? data.display_order);
-  if (data.active !== undefined) payload.is_published = Boolean(data.active);
-  if (data.is_published !== undefined) payload.is_published = Boolean(data.is_published);
 
-  if (data.logo_url !== undefined) payload.logo_url = data.logo_url;
-  else if (data.logoUrl !== undefined) payload.logo_url = data.logoUrl;
+  if (data.active !== undefined || data.is_active !== undefined || data.is_published !== undefined) {
+    const activeVal = Boolean(data.active ?? data.is_active ?? data.is_published);
+    payload.is_active = activeVal;
+    payload.is_published = activeVal;
+  }
+
+  if (data.icon_name !== undefined || data.iconName !== undefined || data.icon_key !== undefined || data.iconKey !== undefined || data.icon !== undefined) {
+    const nameVal = data.icon_name ?? data.iconName ?? data.icon_key ?? data.iconKey ?? data.icon;
+    payload.icon_name = nameVal;
+    payload.icon_key = nameVal;
+    payload.icon = nameVal;
+  }
+
+  if (data.background_color !== undefined || data.backgroundColor !== undefined || data.icon_color !== undefined || data.iconColor !== undefined || data.color !== undefined) {
+    const colorVal = data.background_color ?? data.backgroundColor ?? data.icon_color ?? data.iconColor ?? data.color;
+    payload.background_color = colorVal;
+    payload.icon_color = colorVal;
+    payload.color = colorVal;
+  }
+
+  if (data.subject_type !== undefined || data.subjectType !== undefined) {
+    payload.subject_type = data.subject_type ?? data.subjectType;
+  }
+
+  if (data.class_range !== undefined || data.classRange !== undefined) {
+    payload.class_range = data.class_range ?? data.classRange;
+  }
 
   if (data.banner_url !== undefined) payload.banner_url = data.banner_url;
   else if (data.bannerUrl !== undefined) payload.banner_url = data.bannerUrl;
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("subjects")
     .update(payload)
     .eq("id", id);
+
+  // Handle missing columns gracefully if migration script has not been executed yet in Supabase
+  while (error && error.message && error.message.includes("Could not find the")) {
+    const match = error.message.match(/Could not find the '([^']+)' column/);
+    if (match && match[1] && payload[match[1]] !== undefined) {
+      const missingCol = match[1];
+      console.warn(`Supabase schema cache missing column '${missingCol}'. Omitting '${missingCol}' and retrying update...`);
+      delete payload[missingCol];
+
+      const retryRes = await supabase
+        .from("subjects")
+        .update(payload)
+        .eq("id", id);
+
+      error = retryRes.error;
+    } else {
+      break;
+    }
+  }
 
   if (error) throw error;
 };

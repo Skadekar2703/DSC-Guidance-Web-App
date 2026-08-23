@@ -80,27 +80,23 @@ export const Resources = () => {
   const chapterMap = chapters.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
   const classMap = classes.reduce((acc, cl) => ({ ...acc, [cl.id]: cl.name }), {});
 
-  // Dependent Subjects logic based on selected Class
+  // Available subjects for forms (all active subjects are available)
   const availableFormSubjects = React.useMemo(() => {
-    if (!classId || !classSubjectsMap[classId] || classSubjectsMap[classId].length === 0) {
-      return subjects;
-    }
-    const assignedIds = classSubjectsMap[classId];
-    return subjects.filter((sub) => assignedIds.includes(sub.id));
-  }, [classId, classSubjectsMap, subjects]);
+    return subjects;
+  }, [subjects]);
 
   // Form chapters filtering
-  const formChapters = chapters.filter((c) => c.subjectId === subjectId);
+  const formChapters = chapters.filter((c) => c.subjectId === subjectId || c.subject_id === subjectId);
 
   // Filter Resources
   const filteredResources = resources.filter((res) => {
     const matchesSearch = res.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       res.description?.toLowerCase().includes(searchQuery.toLowerCase());
       
-    const matchesSubject = subjectFilter === "all" || res.subjectId === subjectFilter;
-    const matchesChapter = chapterFilter === "all" || res.chapterId === chapterFilter;
-    const matchesClass = classFilter === "all" || res.classId === classFilter;
-    const matchesType = typeFilter === "all" || res.resourceType === typeFilter;
+    const matchesSubject = subjectFilter === "all" || res.subjectId === subjectFilter || res.subject_id === subjectFilter;
+    const matchesChapter = chapterFilter === "all" || res.chapterId === chapterFilter || res.chapter_id === chapterFilter;
+    const matchesClass = classFilter === "all" || res.classId === classFilter || res.class_id === classFilter;
+    const matchesType = typeFilter === "all" || res.resourceType === typeFilter || res.resource_type === typeFilter;
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && res.published === true) ||
       (statusFilter === "draft" && res.published === false);
@@ -112,7 +108,7 @@ export const Resources = () => {
     setEditResource(null);
     setTitle("");
     setDescription("");
-    setClassId(classes[0]?.id || "");
+    setClassId("");
     setSubjectId(subjects[0]?.id || "");
     setChapterId("");
     setResourceType("Website");
@@ -491,32 +487,10 @@ export const Resources = () => {
             </div>
           </div>
 
-          {/* Class selection first, followed by dependent Subject */}
+          {/* Subject selection first, followed by Class Grade */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
-              <select
-                value={classId}
-                onChange={(e) => {
-                  const newClassId = e.target.value;
-                  setClassId(newClassId);
-                  const assignedSubs = classSubjectsMap[newClassId];
-                  if (assignedSubs && assignedSubs.length > 0 && !assignedSubs.includes(subjectId)) {
-                    setSubjectId(assignedSubs[0]);
-                    setChapterId("");
-                  }
-                }}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
-              >
-                <option value="">All Classes (General)</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject <span className="text-red-500">*</span></label>
               <select
                 value={subjectId}
                 onChange={(e) => {
@@ -524,11 +498,25 @@ export const Resources = () => {
                   setChapterId("");
                 }}
                 required
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none font-medium text-slate-800"
               >
                 <option value="" disabled>Select subject...</option>
-                {availableFormSubjects.map((sub) => (
+                {subjects.map((sub) => (
                   <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
+              <select
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none text-slate-800"
+              >
+                <option value="">All Classes / Not Applicable</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
                 ))}
               </select>
             </div>

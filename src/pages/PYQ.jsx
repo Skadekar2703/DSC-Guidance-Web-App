@@ -79,14 +79,10 @@ export const PYQ = () => {
   const subjectMap = subjects.reduce((acc, s) => ({ ...acc, [s.id]: s.name }), {});
   const classMap = classes.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
 
-  // Dependent Subjects logic based on selected Class
+  // Available subjects for forms (all active subjects are available)
   const availableFormSubjects = React.useMemo(() => {
-    if (!classId || !classSubjectsMap[classId] || classSubjectsMap[classId].length === 0) {
-      return subjects;
-    }
-    const assignedIds = classSubjectsMap[classId];
-    return subjects.filter((sub) => assignedIds.includes(sub.id));
-  }, [classId, classSubjectsMap, subjects]);
+    return subjects;
+  }, [subjects]);
 
   // Generate unique list of years from papers for filter selection
   const yearOptions = Array.from(new Set(papers.map((p) => p.year).filter(Boolean))).sort((a, b) => b - a);
@@ -97,10 +93,10 @@ export const PYQ = () => {
       paper.year?.toString().includes(searchQuery) ||
       paper.description?.toLowerCase().includes(searchQuery.toLowerCase());
       
-    const matchesExam = examTypeFilter === "all" || paper.examType === examTypeFilter;
+    const matchesExam = examTypeFilter === "all" || paper.examType === examTypeFilter || paper.exam_type === examTypeFilter;
     const matchesYear = yearFilter === "all" || paper.year === Number(yearFilter);
-    const matchesSubject = subjectFilter === "all" || paper.subjectId === subjectFilter;
-    const matchesClass = classFilter === "all" || paper.classId === classFilter;
+    const matchesSubject = subjectFilter === "all" || paper.subjectId === subjectFilter || paper.subject_id === subjectFilter;
+    const matchesClass = classFilter === "all" || paper.classId === classFilter || paper.class_id === classFilter;
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && paper.published === true) ||
       (statusFilter === "draft" && paper.published === false);
@@ -113,7 +109,7 @@ export const PYQ = () => {
     setTitle("");
     setExamType("DSC");
     setYear(new Date().getFullYear());
-    setClassId(classes[0]?.id || "");
+    setClassId("");
     setSubjectId(subjects[0]?.id || "");
     setDescription("");
     setPdfSource("upload");
@@ -494,40 +490,33 @@ export const PYQ = () => {
             </div>
           </div>
 
-          {/* Class selection first, followed by dependent Subject */}
+          {/* Subject selection first, followed by Class Grade */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject <span className="text-red-500">*</span></label>
               <select
-                value={classId}
-                onChange={(e) => {
-                  const newClassId = e.target.value;
-                  setClassId(newClassId);
-                  const assignedSubs = classSubjectsMap[newClassId];
-                  if (assignedSubs && assignedSubs.length > 0 && !assignedSubs.includes(subjectId)) {
-                    setSubjectId(assignedSubs[0]);
-                  }
-                }}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none font-medium text-slate-800"
               >
-                <option value="">All Classes (General)</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
+                <option value="" disabled>Select subject...</option>
+                {subjects.map((sub) => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
               <select
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none text-slate-800"
               >
-                <option value="" disabled>Select subject...</option>
-                {availableFormSubjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                <option value="">All Classes / Not Applicable</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
                 ))}
               </select>
             </div>

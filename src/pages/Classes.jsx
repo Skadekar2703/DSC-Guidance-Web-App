@@ -417,14 +417,15 @@ export const Classes = () => {
           </div>
 
           {/* Assign Subjects Section */}
+          {/* Assigned Subjects (Class-based subjects only) */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Assigned Subjects</label>
-            <p className="text-xs text-slate-400">Select subjects taught in this class tier:</p>
-            {subjects.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">No subjects created yet. Add subjects in Subjects page first.</p>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Assigned Subjects (Class-Based)</label>
+            <p className="text-xs text-slate-400">Select class-based subjects applicable for this class tier (Independent subjects operate without classes):</p>
+            {subjects.filter(s => s.subject_type !== "independent").length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No class-based subjects created yet.</p>
             ) : (
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-slate-50 rounded-xl border border-slate-100">
-                {subjects.map((sub) => {
+                {subjects.filter(s => s.subject_type !== "independent").map((sub) => {
                   const isChecked = selectedSubjectIds.includes(sub.id);
 
                   return (

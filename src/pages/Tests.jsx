@@ -100,15 +100,10 @@ export const Tests = () => {
   const chapterMap = chapters.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
   const classMap = classes.reduce((acc, cl) => ({ ...acc, [cl.id]: cl.name }), {});
 
-  // Dependent Subjects logic based on selected Class
+  // Available subjects for forms (all active subjects are available)
   const availableFormSubjects = React.useMemo(() => {
-    if (!classId) return [];
-    const assignedIds = classSubjectsMap[classId];
-    if (!assignedIds || assignedIds.length === 0) {
-      return subjects;
-    }
-    return subjects.filter((sub) => assignedIds.includes(sub.id));
-  }, [classId, classSubjectsMap, subjects]);
+    return subjects;
+  }, [subjects]);
 
   // Form conditional chapters filtering
   const formChapters = React.useMemo(() => {
@@ -121,10 +116,10 @@ export const Tests = () => {
     const matchesSearch = test.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       test.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesSubject = subjectFilter === "all" || test.subjectId === subjectFilter;
-    const matchesChapter = chapterFilter === "all" || test.chapterId === chapterFilter;
-    const matchesClass = classFilter === "all" || test.classId === classFilter;
-    const matchesType = typeFilter === "all" || test.testType === typeFilter;
+    const matchesSubject = subjectFilter === "all" || test.subjectId === subjectFilter || test.subject_id === subjectFilter;
+    const matchesChapter = chapterFilter === "all" || test.chapterId === chapterFilter || test.chapter_id === chapterFilter;
+    const matchesClass = classFilter === "all" || test.classId === classFilter || test.class_id === classFilter;
+    const matchesType = typeFilter === "all" || test.testType === typeFilter || test.test_type === typeFilter;
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && test.published === true) ||
       (statusFilter === "draft" && test.published === false);
@@ -137,13 +132,13 @@ export const Tests = () => {
     setTitle("");
     setDescription("");
     setTestType(typeParam || "DAILY");
-    setClassId("");
     setSubjectId("");
     setChapterId("");
-    setDailyTestNumber(tests.length + 1);
-    setQuestionCount(30);
-    setDuration(30);
-    setMarks(30);
+    setClassId("");
+    setDailyTestNumber(1);
+    setQuestionCount(10);
+    setDuration(15);
+    setMarks(10);
     setTestLink("");
     setDisplayOrder(tests.length + 1);
     setPublished(true);
@@ -154,24 +149,24 @@ export const Tests = () => {
     setEditTest(test);
     setTitle(test.title || "");
     setDescription(test.description || "");
-    setTestType(test.testType || "DAILY");
-    setClassId(test.classId || "");
-    setSubjectId(test.subjectId || "");
-    setChapterId(test.chapterId || "");
-    setDailyTestNumber(test.dailyTestNumber || 1);
-    setQuestionCount(test.questionCount || 30);
-    setDuration(test.duration || 30);
-    setMarks(test.marks || 30);
+    setTestType(test.testType || test.test_type || "DAILY");
+    setSubjectId(test.subjectId || test.subject_id || "");
+    setChapterId(test.chapterId || test.chapter_id || "");
+    setClassId(test.classId || test.class_id || "");
+    setDailyTestNumber(test.dailyTestNumber || test.daily_test_number || 1);
+    setQuestionCount(test.questionCount || test.question_count || 10);
+    setDuration(test.duration || 15);
+    setMarks(test.marks || 10);
     setTestLink(test.testLink || test.external_url || "");
-    setDisplayOrder(test.displayOrder || 1);
+    setDisplayOrder(test.displayOrder || test.display_order || 1);
     setPublished(test.published !== false);
     setModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !testLink.trim() || !classId || !subjectId) {
-      showToast("Title, Test Link URL, Class Grade, and Subject are required.", "warning");
+    if (!title.trim() || !testLink.trim() || !subjectId) {
+      showToast("Title, Test Link URL, and Subject are required.", "warning");
       return;
     }
 
@@ -547,30 +542,10 @@ export const Tests = () => {
             />
           </div>
 
-          {/* Class selection first, followed by dependent Subject & Category */}
+          {/* Subject selection first, followed by Class Grade (optional for independent subjects) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
-              <select
-                value={classId}
-                onChange={(e) => {
-                  const newClassId = e.target.value;
-                  setClassId(newClassId);
-                  setSubjectId("");
-                  setChapterId("");
-                }}
-                required
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-slate-800 bg-white"
-              >
-                <option value="">Select class...</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject <span className="text-red-500">*</span></label>
               <select
                 value={subjectId}
                 onChange={(e) => {
@@ -578,20 +553,27 @@ export const Tests = () => {
                   setSubjectId(newSubjectId);
                   setChapterId("");
                 }}
-                disabled={!classId}
                 required
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-slate-800 bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-slate-800 bg-white font-medium"
               >
-                {!classId ? (
-                  <option value="">Select class first...</option>
-                ) : (
-                  <>
-                    <option value="">Select subject...</option>
-                    {availableFormSubjects.map((sub) => (
-                      <option key={sub.id} value={sub.id}>{sub.name}</option>
-                    ))}
-                  </>
-                )}
+                <option value="">Select subject...</option>
+                {subjects.map((sub) => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
+              <select
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-slate-800 bg-white"
+              >
+                <option value="">All Classes / Not Applicable</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
+                ))}
               </select>
             </div>
           </div>

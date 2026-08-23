@@ -75,25 +75,21 @@ export const TestSeries = () => {
   const subjectMap = subjects.reduce((acc, s) => ({ ...acc, [s.id]: s.name }), {});
   const classMap = classes.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
 
-  // Dependent Subjects logic based on selected Class
+  // Available subjects for forms (all active subjects are available)
   const availableFormSubjects = React.useMemo(() => {
-    if (!classId || !classSubjectsMap[classId] || classSubjectsMap[classId].length === 0) {
-      return subjects;
-    }
-    const assignedIds = classSubjectsMap[classId];
-    return subjects.filter((sub) => assignedIds.includes(sub.id));
-  }, [classId, classSubjectsMap, subjects]);
+    return subjects;
+  }, [subjects]);
 
   // Form conditional test selections (only tests of the selected subject can be added)
-  const availableTests = tests.filter((t) => t.subjectId === subjectId);
+  const availableTests = tests.filter((t) => t.subjectId === subjectId || t.subject_id === subjectId);
 
   // Filter Series
   const filteredSeries = seriesList.filter((series) => {
     const matchesSearch = series.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       series.description?.toLowerCase().includes(searchQuery.toLowerCase());
       
-    const matchesSubject = subjectFilter === "all" || series.subjectId === subjectFilter;
-    const matchesClass = classFilter === "all" || series.classId === classFilter;
+    const matchesSubject = subjectFilter === "all" || series.subjectId === subjectFilter || series.subject_id === subjectFilter;
+    const matchesClass = classFilter === "all" || series.classId === classFilter || series.class_id === classFilter;
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && series.published === true) ||
       (statusFilter === "draft" && series.published === false);
@@ -105,7 +101,7 @@ export const TestSeries = () => {
     setEditSeries(null);
     setTitle("");
     setDescription("");
-    setClassId(classes[0]?.id || "");
+    setClassId("");
     setSubjectId(subjects[0]?.id || "");
     setSelectedTestIds([]);
     setPublished(true);
@@ -382,32 +378,10 @@ export const TestSeries = () => {
             />
           </div>
 
-          {/* Class first, followed by dependent Subject Selection */}
+          {/* Subject Pathway first, followed by Class Grade */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
-              <select
-                value={classId}
-                onChange={(e) => {
-                  const newClassId = e.target.value;
-                  setClassId(newClassId);
-                  const assignedSubs = classSubjectsMap[newClassId];
-                  if (assignedSubs && assignedSubs.length > 0 && !assignedSubs.includes(subjectId)) {
-                    setSubjectId(assignedSubs[0]);
-                    setSelectedTestIds([]);
-                  }
-                }}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
-              >
-                <option value="">All Classes (General)</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject Pathway</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject Pathway <span className="text-red-500">*</span></label>
               <select
                 value={subjectId}
                 onChange={(e) => {
@@ -415,11 +389,25 @@ export const TestSeries = () => {
                   setSelectedTestIds([]); // reset selected tests when subject changes
                 }}
                 required
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none font-medium"
               >
                 <option value="" disabled>Select subject...</option>
-                {availableFormSubjects.map((sub) => (
+                {subjects.map((sub) => (
                   <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Class Grade</label>
+              <select
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
+              >
+                <option value="">All Classes / Not Applicable</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
                 ))}
               </select>
             </div>
