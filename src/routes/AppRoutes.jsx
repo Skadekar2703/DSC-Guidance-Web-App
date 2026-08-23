@@ -121,8 +121,14 @@ export const AppRoutes = () => {
         <Route path="/chapters" element={<Chapters />} />
         <Route path="/classes" element={<Classes />} />
         <Route path="/materials" element={<Materials />} />
+        <Route path="/study-materials" element={<Navigate to="/materials" replace />} />
         <Route path="/pyq" element={<PYQ />} />
+        <Route path="/previous-papers" element={<Navigate to="/pyq" replace />} />
         <Route path="/tests" element={<Tests />} />
+        <Route path="/tests/daily" element={<Navigate to="/tests?type=DAILY" replace />} />
+        <Route path="/tests/chapter-wise" element={<Navigate to="/tests?type=CHAPTER_WISE" replace />} />
+        <Route path="/tests/class-wise" element={<Navigate to="/tests?type=CLASS_WISE" replace />} />
+        <Route path="/tests/practice" element={<Navigate to="/tests?type=PRACTICE" replace />} />
         <Route path="/test-series" element={<TestSeries />} />
         <Route path="/resources" element={<Resources />} />
         <Route path="/users" element={<Users />} />
