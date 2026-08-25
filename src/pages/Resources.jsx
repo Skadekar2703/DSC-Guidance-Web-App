@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useSupabaseCollection } from "../hooks/useSupabase";
 import { addResource, updateResource, deleteResource } from "../services/resourcesService";
 import { getClassSubjects } from "../services/classSubjectsService";
+import { deleteFile } from "../services/storageService";
 import { useToast } from "../components/common/Toast";
 import { Button } from "../components/common/Button";
 import { Modal } from "../components/common/Modal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { SearchBar } from "../components/common/SearchBar";
+import { FileUpload } from "../components/forms/FileUpload";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { Plus, Edit2, Trash2, Eye, EyeOff, FolderOpen, ExternalLink, MessageCircle, Play, Send, Globe, FileSpreadsheet, Link2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, FolderOpen, ExternalLink, MessageCircle, Play, Send, Globe, FileSpreadsheet, Link2, FileText } from "lucide-react";
 
 export const Resources = () => {
   const { showToast } = useToast();
@@ -66,8 +68,12 @@ export const Resources = () => {
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [chapterId, setChapterId] = useState("");
-  const [resourceType, setResourceType] = useState("Website");
+  const [resourceType, setResourceType] = useState("PDF");
+  const [resourceSource, setResourceSource] = useState("upload"); // upload | external
   const [url, setUrl] = useState("");
+  const [storagePath, setStoragePath] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileSize, setFileSize] = useState(null);
   const [displayOrder, setDisplayOrder] = useState(1);
   const [published, setPublished] = useState(true);
 
@@ -111,8 +117,12 @@ export const Resources = () => {
     setClassId("");
     setSubjectId(subjects[0]?.id || "");
     setChapterId("");
-    setResourceType("Website");
+    setResourceType("PDF");
+    setResourceSource("upload");
     setUrl("");
+    setStoragePath("");
+    setFileName("");
+    setFileSize(null);
     setDisplayOrder(resources.length + 1);
     setPublished(true);
     setModalOpen(true);
@@ -125,21 +135,41 @@ export const Resources = () => {
     setClassId(res.classId || "");
     setSubjectId(res.subjectId || "");
     setChapterId(res.chapterId || "");
-    setResourceType(res.resourceType || "Website");
+    setResourceType(res.resourceType || res.resource_type || "PDF");
+    const resolvedPath = res.storagePath || res.storage_path || "";
+    setResourceSource(resolvedPath ? "upload" : "external");
     setUrl(res.url || "");
+    setStoragePath(resolvedPath);
+    setFileName(res.fileName || res.file_name || "");
+    setFileSize(res.fileSize || res.file_size || null);
     setDisplayOrder(res.displayOrder || 1);
     setPublished(res.published !== false);
     setModalOpen(true);
   };
 
+  const handleUploadSuccess = (uploadData) => {
+    setUrl(uploadData.pdfUrl);
+    setStoragePath(uploadData.storagePath);
+    setFileName(uploadData.fileName);
+    setFileSize(uploadData.fileSize);
+    showToast("Resource PDF uploaded to Supabase Storage.", "success");
+  };
+
+  const handleUploadClear = () => {
+    setUrl("");
+    setStoragePath("");
+    setFileName("");
+    setFileSize(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !url.trim() || !subjectId) {
-      showToast("Resource Title, Destination URL, and Subject are required.", "warning");
+      showToast("Resource Title, File/URL, and Subject are required.", "warning");
       return;
     }
 
-    if (!url.trim().startsWith("http")) {
+    if (resourceSource === "external" && !url.trim().startsWith("http")) {
       showToast("Please enter a valid destination link starting with http:// or https://", "warning");
       return;
     }
@@ -153,6 +183,9 @@ export const Resources = () => {
       classId: classId || null,
       resourceType,
       url: url.trim(),
+      storagePath: resourceSource === "upload" ? storagePath : "",
+      fileName: resourceSource === "upload" ? fileName : null,
+      fileSize: resourceSource === "upload" ? fileSize : null,
       displayOrder: Number(displayOrder),
       published: Boolean(published),
       active: true,
@@ -161,6 +194,17 @@ export const Resources = () => {
     try {
       if (editResource) {
         await updateResource(editResource.id, resourceData);
+
+        // Delete old storage file if replaced or switched to external link
+        const oldStoragePath = editResource.storagePath || editResource.storage_path;
+        if (oldStoragePath && (resourceSource === "external" || oldStoragePath !== storagePath)) {
+          try {
+            await deleteFile(oldStoragePath);
+          } catch (storageErr) {
+            console.warn("Storage cleanup warning:", storageErr);
+          }
+        }
+
         showToast("Resource updated successfully.", "success");
       } else {
         await addResource(resourceData);
@@ -184,6 +228,16 @@ export const Resources = () => {
     setDeleteLoading(true);
     try {
       await deleteResource(deleteItem.id);
+
+      const targetPath = deleteItem.storagePath || deleteItem.storage_path;
+      if (targetPath) {
+        try {
+          await deleteFile(targetPath);
+        } catch (storageErr) {
+          console.warn("Storage file deletion warning:", storageErr);
+        }
+      }
+
       showToast(`Resource "${deleteItem.title}" deleted successfully.`, "success");
       setDeleteItem(null);
     } catch (err) {
@@ -471,20 +525,56 @@ export const Resources = () => {
             />
           </div>
 
-          {/* URL */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Destination URL</label>
-            <div className="relative">
-              <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 shrink-0" />
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com/resource"
-                required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none text-slate-800 bg-white"
-              />
+          {/* Resource Source Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Resource File / Link Source</label>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="resourceSource"
+                  checked={resourceSource === "upload"}
+                  onChange={() => setResourceSource("upload")}
+                  className="text-primary focus:ring-primary"
+                />
+                Upload File / PDF (Supabase Storage)
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="resourceSource"
+                  checked={resourceSource === "external"}
+                  onChange={() => setResourceSource("external")}
+                  className="text-primary focus:ring-primary"
+                />
+                External URL / Website Link
+              </label>
             </div>
+
+            {resourceSource === "upload" ? (
+              <FileUpload
+                onUploadSuccess={handleUploadSuccess}
+                onClear={handleUploadClear}
+                initialFileUrl={url}
+                initialFileName={fileName}
+                folder="resources"
+                accept="application/pdf, .doc, .docx, .ppt, .pptx"
+              />
+            ) : (
+              <div className="space-y-1.5 pt-1">
+                <div className="relative">
+                  <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 shrink-0" />
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://example.com/resource"
+                    required={resourceSource === "external"}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none text-slate-800 bg-white"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Subject selection first, followed by Class Grade */}

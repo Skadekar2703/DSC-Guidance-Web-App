@@ -4,7 +4,7 @@ import { uploadFile } from "../../services/storageService";
 import { Button } from "../common/Button";
 
 /**
- * FileUpload component that connects to Firebase Storage and reports status/URL to the parent form.
+ * FileUpload component that connects to Supabase Storage and reports status/URL to the parent form.
  */
 export const FileUpload = ({
   folder = "materials",
@@ -13,7 +13,7 @@ export const FileUpload = ({
   initialFileUrl = "",
   initialFileName = "",
   accept = "application/pdf",
-  maxSizeMb = 25,
+  maxSizeMb = 50,
 }) => {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);

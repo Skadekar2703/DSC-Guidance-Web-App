@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useSupabaseCollection } from "../hooks/useSupabase";
 import { addTestSeries, updateTestSeries, deleteTestSeries } from "../services/testSeriesService";
 import { getClassSubjects } from "../services/classSubjectsService";
+import { deleteFile } from "../services/storageService";
 import { useToast } from "../components/common/Toast";
 import { Button } from "../components/common/Button";
 import { Modal } from "../components/common/Modal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { SearchBar } from "../components/common/SearchBar";
+import { FileUpload } from "../components/forms/FileUpload";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { Plus, Edit2, Trash2, Eye, EyeOff, Layers, Folders, CheckSquare, Square } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, Layers, Folders, CheckSquare, Square, FileText } from "lucide-react";
 
 export const TestSeries = () => {
   const { showToast } = useToast();
@@ -64,6 +66,10 @@ export const TestSeries = () => {
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [selectedTestIds, setSelectedTestIds] = useState([]);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [storagePath, setStoragePath] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileSize, setFileSize] = useState(null);
   const [published, setPublished] = useState(true);
 
   // Deletion State
@@ -104,6 +110,10 @@ export const TestSeries = () => {
     setClassId("");
     setSubjectId(subjects[0]?.id || "");
     setSelectedTestIds([]);
+    setPdfUrl("");
+    setStoragePath("");
+    setFileName("");
+    setFileSize(null);
     setPublished(true);
     setModalOpen(true);
   };
@@ -115,8 +125,27 @@ export const TestSeries = () => {
     setClassId(series.classId || "");
     setSubjectId(series.subjectId || "");
     setSelectedTestIds(series.tests || []);
+    setPdfUrl(series.pdfUrl || series.pdf_url || "");
+    setStoragePath(series.storagePath || series.storage_path || "");
+    setFileName(series.fileName || series.file_name || "");
+    setFileSize(series.fileSize || series.file_size || null);
     setPublished(series.published !== false);
     setModalOpen(true);
+  };
+
+  const handleUploadSuccess = (uploadData) => {
+    setPdfUrl(uploadData.pdfUrl);
+    setStoragePath(uploadData.storagePath);
+    setFileName(uploadData.fileName);
+    setFileSize(uploadData.fileSize);
+    showToast("PDF document uploaded successfully to Supabase Storage.", "success");
+  };
+
+  const handleUploadClear = () => {
+    setPdfUrl("");
+    setStoragePath("");
+    setFileName("");
+    setFileSize(null);
   };
 
   const handleTestToggle = (id) => {
@@ -139,6 +168,10 @@ export const TestSeries = () => {
       subjectId,
       classId: classId || null,
       tests: selectedTestIds,
+      pdfUrl,
+      storagePath,
+      fileName,
+      fileSize,
       published: Boolean(published),
       active: true,
     };
@@ -146,6 +179,17 @@ export const TestSeries = () => {
     try {
       if (editSeries) {
         await updateTestSeries(editSeries.id, seriesData);
+
+        // Delete old storage file if replaced or cleared
+        const oldStoragePath = editSeries.storagePath || editSeries.storage_path;
+        if (oldStoragePath && oldStoragePath !== storagePath) {
+          try {
+            await deleteFile(oldStoragePath);
+          } catch (storageErr) {
+            console.warn("Storage cleanup warning:", storageErr);
+          }
+        }
+
         showToast("Test series bundle updated successfully.", "success");
       } else {
         await addTestSeries(seriesData);
@@ -169,7 +213,18 @@ export const TestSeries = () => {
     if (!deleteId) return;
     setDeleteLoading(true);
     try {
+      const itemToDelete = seriesList.find((s) => s.id === deleteId);
       await deleteTestSeries(deleteId);
+
+      const targetPath = itemToDelete?.storagePath || itemToDelete?.storage_path;
+      if (targetPath) {
+        try {
+          await deleteFile(targetPath);
+        } catch (storageErr) {
+          console.warn("Storage deletion warning:", storageErr);
+        }
+      }
+
       showToast(`Test series "${deleteName}" deleted successfully.`, "success");
       setDeleteId(null);
     } catch (err) {
@@ -375,6 +430,19 @@ export const TestSeries = () => {
               placeholder="Describe this series bundle..."
               rows={2}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none resize-none"
+            />
+          </div>
+
+          {/* Test Series PDF Document Upload */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Test Series PDF Resource</label>
+            <FileUpload
+              onUploadSuccess={handleUploadSuccess}
+              onClear={handleUploadClear}
+              initialFileUrl={pdfUrl}
+              initialFileName={fileName}
+              folder="test-series"
+              accept="application/pdf"
             />
           </div>
 

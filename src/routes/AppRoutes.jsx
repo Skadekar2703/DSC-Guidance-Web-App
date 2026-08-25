@@ -12,7 +12,6 @@ import Login from "../pages/Login";
 import CreateAdmin from "../pages/CreateAdmin";
 import Dashboard from "../pages/Dashboard";
 import Subjects from "../pages/Subjects";
-import Chapters from "../pages/Chapters";
 import Classes from "../pages/Classes";
 import Materials from "../pages/Materials";
 import PYQ from "../pages/PYQ";
@@ -51,7 +50,6 @@ const AdminDashboardLayout = () => {
     const path = location.pathname;
     if (path.includes("dashboard")) return "Dashboard Overview";
     if (path.includes("subjects")) return "Manage Subjects";
-    if (path.includes("chapters")) return "Manage Chapters";
     if (path.includes("classes")) return "Manage Classes";
     if (path.includes("materials")) return "Study Notes & PDFs";
     if (path.includes("pyq")) return "Previous Year Papers";
@@ -118,7 +116,6 @@ export const AppRoutes = () => {
       <Route element={<AdminDashboardLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/subjects" element={<Subjects />} />
-        <Route path="/chapters" element={<Chapters />} />
         <Route path="/classes" element={<Classes />} />
         <Route path="/materials" element={<Materials />} />
         <Route path="/study-materials" element={<Navigate to="/materials" replace />} />

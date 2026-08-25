@@ -3,13 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { useSupabaseCollection } from "../hooks/useSupabase";
 import { addTest, updateTest, deleteTest } from "../services/testsService";
 import { getClassSubjects } from "../services/classSubjectsService";
+import { deleteFile } from "../services/storageService";
 import { useToast } from "../components/common/Toast";
 import { Button } from "../components/common/Button";
 import { Modal } from "../components/common/Modal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { SearchBar } from "../components/common/SearchBar";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { Plus, Edit2, Trash2, Eye, EyeOff, FileSpreadsheet, ExternalLink, Copy, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, FileSpreadsheet, ExternalLink, Copy, Check, Link2, FileText } from "lucide-react";
 
 export const Tests = () => {
   const { showToast } = useToast();
@@ -157,7 +158,7 @@ export const Tests = () => {
     setQuestionCount(test.questionCount || test.question_count || 10);
     setDuration(test.duration || 15);
     setMarks(test.marks || 10);
-    setTestLink(test.testLink || test.external_url || "");
+    setTestLink(test.testLink || test.external_url || test.pdf_url || test.pdfUrl || "");
     setDisplayOrder(test.displayOrder || test.display_order || 1);
     setPublished(test.published !== false);
     setModalOpen(true);
@@ -165,13 +166,14 @@ export const Tests = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !testLink.trim() || !subjectId) {
-      showToast("Title, Test Link URL, and Subject are required.", "warning");
+    const finalLink = testLink.trim();
+    if (!title.trim() || !finalLink || !subjectId) {
+      showToast("Title, External URL / Form Link, and Subject are required.", "warning");
       return;
     }
 
-    if (!testLink.trim().startsWith("http")) {
-      showToast("Please provide a valid test link starting with http:// or https://", "warning");
+    if (finalLink && !finalLink.startsWith("http")) {
+      showToast("Please provide a valid test URL starting with http:// or https://", "warning");
       return;
     }
 
@@ -187,8 +189,12 @@ export const Tests = () => {
       questionCount: Number(questionCount),
       duration: Number(duration),
       marks: Number(marks),
-      testLink: testLink.trim(),
-      external_url: testLink.trim(),
+      testLink: finalLink,
+      external_url: finalLink,
+      pdfUrl: null,
+      storagePath: "",
+      fileName: null,
+      fileSize: null,
       displayOrder: Number(displayOrder),
       published: Boolean(published),
       active: true,
@@ -197,15 +203,26 @@ export const Tests = () => {
     try {
       if (editTest) {
         await updateTest(editTest.id, testData);
+
+        // Clean up old storage file if editing an old record that had a storage path
+        const oldStoragePath = editTest.storagePath || editTest.storage_path;
+        if (oldStoragePath) {
+          try {
+            await deleteFile(oldStoragePath);
+          } catch (storageErr) {
+            console.warn("Storage cleanup warning:", storageErr);
+          }
+        }
+
         showToast("Test updated successfully.", "success");
       } else {
         await addTest(testData);
-        showToast("Test added successfully.", "success");
+        showToast("Test created successfully.", "success");
       }
       setModalOpen(false);
     } catch (err) {
-      console.error(err);
-      showToast("Failed to save test.", "danger");
+      console.error("Test save error:", err);
+      showToast(err.message || "Failed to save test.", "danger");
     } finally {
       setFormLoading(false);
     }
@@ -220,12 +237,23 @@ export const Tests = () => {
     if (!deleteId) return;
     setDeleteLoading(true);
     try {
+      const testToDelete = tests.find((t) => t.id === deleteId);
       await deleteTest(deleteId);
+
+      const targetPath = testToDelete?.storagePath || testToDelete?.storage_path;
+      if (targetPath) {
+        try {
+          await deleteFile(targetPath);
+        } catch (storageErr) {
+          console.warn("Storage file deletion warning:", storageErr);
+        }
+      }
+
       showToast(`Test "${deleteName}" deleted successfully.`, "success");
       setDeleteId(null);
     } catch (err) {
       console.error(err);
-      showToast("Failed to delete test.", "danger");
+      showToast("Failed to delete practice test.", "danger");
     } finally {
       setDeleteLoading(false);
     }
@@ -346,7 +374,6 @@ export const Tests = () => {
               <option value="DAILY">Daily Tests</option>
               <option value="CHAPTER_WISE">Chapter-wise Tests</option>
               <option value="CLASS_WISE">Class-wise Tests</option>
-              <option value="PREVIOUS_YEAR">Previous-Year Quizzes</option>
               <option value="PRACTICE">Practice Mocks</option>
             </select>
           </div>
@@ -529,17 +556,22 @@ export const Tests = () => {
             />
           </div>
 
-          {/* Link URL */}
+          {/* Test Resource Source (URL Only) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Test Link URL (Google Form / External)</label>
-            <input
-              type="url"
-              value={testLink}
-              onChange={(e) => setTestLink(e.target.value)}
-              placeholder="https://docs.google.com/forms/d/..."
-              required
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none text-slate-800 bg-white"
-            />
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+              External URL / Form Link <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 shrink-0" />
+              <input
+                type="url"
+                value={testLink}
+                onChange={(e) => setTestLink(e.target.value)}
+                placeholder="Paste test URL..."
+                required
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none text-slate-800 bg-white"
+              />
+            </div>
           </div>
 
           {/* Subject selection first, followed by Class Grade (optional for independent subjects) */}
@@ -591,7 +623,6 @@ export const Tests = () => {
                 <option value="DAILY">DAILY TEST</option>
                 <option value="CHAPTER_WISE">CHAPTER-WISE TEST</option>
                 <option value="CLASS_WISE">CLASS-WISE TEST</option>
-                <option value="PREVIOUS_YEAR">PREVIOUS-YEAR QUIZ</option>
                 <option value="PRACTICE">PRACTICE MOCK</option>
               </select>
             </div>

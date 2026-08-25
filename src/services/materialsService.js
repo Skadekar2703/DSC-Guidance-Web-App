@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase";
 
 export const addMaterial = async (data) => {
-  const payload = {
+  let payload = {
     title: data.title,
     description: data.description || "",
     subject_id: data.subjectId || data.subject_id || null,
@@ -18,18 +18,38 @@ export const addMaterial = async (data) => {
     is_published: data.published !== undefined ? Boolean(data.published) : (data.active !== undefined ? Boolean(data.active) : Boolean(data.is_published ?? true)),
   };
 
-  const { data: result, error } = await supabase
+  let { data: result, error } = await supabase
     .from("materials")
     .insert([payload])
     .select()
     .single();
 
+  while (error && error.message && error.message.includes("Could not find the")) {
+    const match = error.message.match(/Could not find the '([^']+)' column/);
+    if (match && match[1] && payload[match[1]] !== undefined) {
+      const missingCol = match[1];
+      console.warn(`Supabase schema cache missing column '${missingCol}' in materials. Omitting and retrying insert...`);
+      delete payload[missingCol];
+
+      const retryRes = await supabase
+        .from("materials")
+        .insert([payload])
+        .select()
+        .single();
+
+      result = retryRes.data;
+      error = retryRes.error;
+    } else {
+      break;
+    }
+  }
+
   if (error) throw error;
-  return result.id;
+  return result?.id;
 };
 
 export const updateMaterial = async (id, data) => {
-  const payload = {};
+  let payload = {};
   if (data.title !== undefined) payload.title = data.title;
   if (data.description !== undefined) payload.description = data.description;
   if (data.subjectId !== undefined || data.subject_id !== undefined) payload.subject_id = data.subjectId || data.subject_id || null;
@@ -47,10 +67,28 @@ export const updateMaterial = async (id, data) => {
   if (data.active !== undefined) payload.is_published = Boolean(data.active);
   if (data.is_published !== undefined) payload.is_published = Boolean(data.is_published);
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("materials")
     .update(payload)
     .eq("id", id);
+
+  while (error && error.message && error.message.includes("Could not find the")) {
+    const match = error.message.match(/Could not find the '([^']+)' column/);
+    if (match && match[1] && payload[match[1]] !== undefined) {
+      const missingCol = match[1];
+      console.warn(`Supabase schema cache missing column '${missingCol}' in materials. Omitting and retrying update...`);
+      delete payload[missingCol];
+
+      const retryRes = await supabase
+        .from("materials")
+        .update(payload)
+        .eq("id", id);
+
+      error = retryRes.error;
+    } else {
+      break;
+    }
+  }
 
   if (error) throw error;
 };

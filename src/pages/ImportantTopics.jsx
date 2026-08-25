@@ -143,15 +143,17 @@ export const ImportantTopics = () => {
 
     try {
       if (editTopic) {
-        // If the pdf source switched to external and a file was previously uploaded, delete the old file
-        if (pdfSource === "external" && editTopic.storagePath) {
+        await updateImportantTopic(editTopic.id, topicData);
+
+        // Delete old storage file if replaced or switched to external URL
+        if (editTopic.storagePath && (pdfSource === "external" || editTopic.storagePath !== storagePath)) {
           try {
             await deleteFile(editTopic.storagePath);
           } catch (storageErr) {
             console.warn("Storage cleanup warning:", storageErr);
           }
         }
-        await updateImportantTopic(editTopic.id, topicData);
+
         showToast("Topic updated successfully.", "success");
       } else {
         await addImportantTopic(topicData);

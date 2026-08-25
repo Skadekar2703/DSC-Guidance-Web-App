@@ -9,9 +9,6 @@ import { Modal } from "../components/common/Modal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { SearchBar } from "../components/common/SearchBar";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { SubjectIcon } from "../components/common/SubjectIcon";
-import { SubjectIconPicker } from "../components/common/SubjectIconPicker";
-import { SubjectColorPicker } from "../components/common/SubjectColorPicker";
 import { Plus, Edit2, Trash2, Eye, EyeOff, BookOpen, Upload, X, Image as ImageIcon, Loader2, Sparkles } from "lucide-react";
 
 export const Subjects = () => {
@@ -42,10 +39,13 @@ export const Subjects = () => {
   const [description, setDescription] = useState("");
   const [displayOrder, setDisplayOrder] = useState(1);
   const [active, setActive] = useState(true);
-  const [iconName, setIconName] = useState("book");
-  const [backgroundColor, setBackgroundColor] = useState("#EDE7F6");
   const [subjectType, setSubjectType] = useState("class_based");
   const [classRange, setClassRange] = useState("3-10");
+
+  // Subject Logo state
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
 
   // Subject Banner state
   const [bannerFile, setBannerFile] = useState(null);
@@ -77,6 +77,9 @@ export const Subjects = () => {
   });
 
   const resetAssetStates = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoRemoved(false);
     setBannerFile(null);
     setBannerPreview(null);
     setBannerRemoved(false);
@@ -89,12 +92,6 @@ export const Subjects = () => {
     if (predefined) {
       setSubjectType(predefined.subject_type);
       setClassRange(predefined.class_range || null);
-      if (predefined.default_icon_name || predefined.default_icon_key) {
-        setIconName(predefined.default_icon_name || predefined.default_icon_key);
-      }
-      if (predefined.default_background_color || predefined.default_icon_color) {
-        setBackgroundColor(predefined.default_background_color || predefined.default_icon_color);
-      }
       if (!description) {
         setDescription(predefined.description);
       }
@@ -112,8 +109,6 @@ export const Subjects = () => {
     setDescription("");
     setDisplayOrder(subjects.length + 1);
     setActive(true);
-    setIconName("book");
-    setBackgroundColor("#EDE7F6");
     setSubjectType("class_based");
     setClassRange("3-10");
     resetAssetStates();
@@ -127,18 +122,13 @@ export const Subjects = () => {
     setDisplayOrder(subject.display_order || subject.displayOrder || 1);
     setActive(subject.is_active !== false && subject.active !== false);
 
-    const resolvedIcon = subject.icon_name || subject.iconName || subject.icon_key || subject.iconKey || subject.icon || "book";
-    const resolvedColor = subject.background_color || subject.backgroundColor || subject.icon_color || subject.iconColor || "#EDE7F6";
-
-    setIconName(resolvedIcon);
-    setBackgroundColor(resolvedColor);
-
     const predefined = getPredefinedSubjectByName(subject.name);
     setSubjectType(subject.subject_type || predefined?.subject_type || "class_based");
     setClassRange(subject.class_range !== undefined ? subject.class_range : (predefined?.class_range || null));
 
     resetAssetStates();
-    setBannerPreview(subject.banner_url || subject.bannerUrl || null);
+    setLogoPreview(subject.logo_url || subject.logoUrl || subject.logoImageUrl || null);
+    setBannerPreview(subject.banner_url || subject.bannerUrl || subject.bannerImageUrl || null);
     setModalOpen(true);
   };
 
@@ -158,6 +148,22 @@ export const Subjects = () => {
     }
 
     return true;
+  };
+
+  const handleLogoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!validateImageFile(file)) return;
+
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+    setLogoRemoved(false);
+  };
+
+  const handleLogoRemove = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoRemoved(true);
   };
 
   const handleBannerSelect = (e) => {
@@ -183,13 +189,10 @@ export const Subjects = () => {
       return;
     }
 
-    if (!iconName) {
-      showToast("Please select a Subject Symbol.", "warning");
-      return;
-    }
-
-    if (!backgroundColor) {
-      showToast("Please select a Subject Background Color.", "warning");
+    // Logo validation: logo is required when creating a new subject or if existing logo was removed
+    const hasLogo = Boolean(logoFile || (logoPreview && !logoRemoved));
+    if (!hasLogo) {
+      showToast("Subject Logo Image is required.", "warning");
       return;
     }
 
@@ -208,10 +211,25 @@ export const Subjects = () => {
 
     const subjectId = editSubject ? editSubject.id : crypto.randomUUID();
     const newlyUploadedUrls = [];
-    let finalBannerUrl = editSubject ? (editSubject.banner_url || editSubject.bannerUrl || null) : null;
+    let finalLogoUrl = editSubject ? (editSubject.logo_url || editSubject.logoUrl || editSubject.logoImageUrl || null) : null;
+    let finalBannerUrl = editSubject ? (editSubject.banner_url || editSubject.bannerUrl || editSubject.bannerImageUrl || null) : null;
 
     try {
-      // 1. Handle Banner Upload/Removal
+      // 1. Handle Logo Upload/Removal
+      if (logoRemoved) {
+        finalLogoUrl = null;
+      } else if (logoFile) {
+        setUploadProgress("Uploading subject logo...");
+        const res = await uploadSubjectAsset({
+          subjectId,
+          assetType: "logo",
+          file: logoFile,
+        });
+        finalLogoUrl = res.downloadUrl;
+        newlyUploadedUrls.push(res.downloadUrl);
+      }
+
+      // 2. Handle Banner Upload/Removal
       if (bannerRemoved) {
         finalBannerUrl = null;
       } else if (bannerFile) {
@@ -225,7 +243,7 @@ export const Subjects = () => {
         newlyUploadedUrls.push(res.downloadUrl);
       }
 
-      // 2. Derive subject_type & class_range based on predefined catalog rules
+      // 3. Derive subject_type & class_range based on predefined catalog rules
       const predefined = getPredefinedSubjectByName(name.trim());
       const finalSubjectType = predefined ? predefined.subject_type : subjectType;
       const finalClassRange = predefined ? predefined.class_range : (finalSubjectType === "independent" ? null : classRange);
@@ -237,21 +255,24 @@ export const Subjects = () => {
         display_order: Number(displayOrder),
         is_active: Boolean(active),
         active: Boolean(active),
-        icon_name: iconName,
-        icon_key: iconName,
-        icon: iconName,
-        background_color: backgroundColor,
-        icon_color: backgroundColor,
         subject_type: finalSubjectType,
         class_range: finalClassRange,
+        logo_url: finalLogoUrl,
+        logoUrl: finalLogoUrl,
+        logoImageUrl: finalLogoUrl,
         banner_url: finalBannerUrl,
+        bannerUrl: finalBannerUrl,
+        bannerImageUrl: finalBannerUrl,
       };
 
       if (editSubject) {
         await updateSubject(subjectId, payload);
 
-        if ((bannerRemoved || bannerFile) && (editSubject.banner_url || editSubject.bannerUrl)) {
-          deleteSubjectAsset(editSubject.banner_url || editSubject.bannerUrl);
+        if ((logoRemoved || logoFile) && (editSubject.logo_url || editSubject.logoUrl || editSubject.logoImageUrl)) {
+          deleteSubjectAsset(editSubject.logo_url || editSubject.logoUrl || editSubject.logoImageUrl);
+        }
+        if ((bannerRemoved || bannerFile) && (editSubject.banner_url || editSubject.bannerUrl || editSubject.bannerImageUrl)) {
+          deleteSubjectAsset(editSubject.banner_url || editSubject.bannerUrl || editSubject.bannerImageUrl);
         }
 
         showToast("Subject updated successfully.", "success");
@@ -317,8 +338,11 @@ export const Subjects = () => {
       const subjectToDelete = subjects.find((s) => s.id === deleteId);
       await deleteSubject(deleteId);
 
-      if (subjectToDelete && (subjectToDelete.banner_url || subjectToDelete.bannerUrl)) {
-        deleteSubjectAsset(subjectToDelete.banner_url || subjectToDelete.bannerUrl);
+      if (subjectToDelete) {
+        const logoUrl = subjectToDelete.logo_url || subjectToDelete.logoUrl || subjectToDelete.logoImageUrl;
+        const bannerUrl = subjectToDelete.banner_url || subjectToDelete.bannerUrl || subjectToDelete.bannerImageUrl;
+        if (logoUrl) deleteSubjectAsset(logoUrl);
+        if (bannerUrl) deleteSubjectAsset(bannerUrl);
       }
 
       showToast(`Subject "${deleteName}" deleted successfully.`, "success");
@@ -351,7 +375,7 @@ export const Subjects = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Subjects Directory</h1>
-          <p className="text-xs text-slate-400 mt-1">Manage core educational subjects, symbol icons, colors, and banners.</p>
+          <p className="text-xs text-slate-400 mt-1">Manage core educational subjects, logo images, and subject banners.</p>
         </div>
         <Button onClick={openAddModal} icon={Plus} className="shadow-lg shadow-primary/10">
           Add Subject
@@ -408,40 +432,41 @@ export const Subjects = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSubjects.map((subject) => {
-            const banner = subject.banner_url || subject.bannerUrl;
+            const logo = subject.logo_url || subject.logoUrl || subject.logoImageUrl;
+            const banner = subject.banner_url || subject.bannerUrl || subject.bannerImageUrl;
             const isActive = subject.is_active !== false && subject.active !== false;
             const isIndep = isIndependentSubject(subject);
-            const iconNameVal = subject.icon_name || subject.iconName || subject.icon_key || subject.iconKey || subject.icon || "book";
-            const cardBgColor = subject.background_color || subject.backgroundColor || subject.icon_color || subject.iconColor || "#EDE7F6";
 
             return (
               <div
                 key={subject.id}
-                className="rounded-2xl border border-slate-900/10 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between"
-                style={{ backgroundColor: cardBgColor }}
+                className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between"
               >
                 {/* Banner Preview Strip */}
-                {banner && (
-                  <div className="h-28 w-full overflow-hidden bg-slate-100/50 relative shrink-0 border-b border-slate-900/10">
+                {banner ? (
+                  <div className="h-28 w-full overflow-hidden bg-slate-100 relative shrink-0 border-b border-slate-200">
                     <img
                       src={banner}
                       alt={`${subject.name} banner`}
                       className="w-full h-full object-cover"
                     />
                   </div>
-                )}
+                ) : null}
 
                 <div className="p-5 flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex items-start justify-between gap-3">
-                      {/* Native Symbol in Circular White/Light Container */}
-                      <div className="h-14 w-14 rounded-full bg-white/80 backdrop-blur-xs flex items-center justify-center shrink-0 shadow-xs border border-slate-900/10">
-                        <SubjectIcon
-                          iconName={iconNameVal}
-                          subjectName={subject.name}
-                          color="#1E293B"
-                          className="h-7 w-7 text-slate-800"
-                        />
+                      {/* Logo Container */}
+                      <div className="h-14 w-14 rounded-2xl bg-white flex items-center justify-center shrink-0 shadow-xs border border-slate-200 p-1.5 overflow-hidden">
+                        {logo ? (
+                          <img
+                            src={logo}
+                            alt={`${subject.name} logo`}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <BookOpen className="h-7 w-7 text-slate-400" />
+                        )}
                       </div>
 
                       {/* Active Status Badge */}
@@ -451,11 +476,11 @@ export const Subjects = () => {
                         title="Click to toggle status"
                       >
                         {isActive ? (
-                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-white/90 text-emerald-800 border border-emerald-300/80 text-xs font-bold rounded-full shadow-2xs">
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-full shadow-2xs">
                             <Eye className="h-3 w-3" /> Active
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-white/70 text-slate-600 border border-slate-300/80 text-xs font-bold rounded-full shadow-2xs">
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold rounded-full shadow-2xs">
                             <EyeOff className="h-3 w-3" /> Inactive
                           </span>
                         )}
@@ -468,30 +493,25 @@ export const Subjects = () => {
                       {/* Type & Range Badges */}
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         {isIndep ? (
-                          <span className="px-2.5 py-0.5 bg-white/75 text-purple-900 border border-purple-200/80 text-[11px] font-bold rounded-lg shadow-2xs">
+                          <span className="px-2.5 py-0.5 bg-purple-50 text-purple-900 border border-purple-200 text-[11px] font-bold rounded-lg shadow-2xs">
                             Independent Subject
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 bg-white/75 text-blue-900 border border-blue-200/80 text-[11px] font-bold rounded-lg shadow-2xs">
+                          <span className="px-2.5 py-0.5 bg-blue-50 text-blue-900 border border-blue-200 text-[11px] font-bold rounded-lg shadow-2xs">
                             Class-based Subject
                           </span>
                         )}
 
-                        <span className="px-2.5 py-0.5 bg-white/75 text-slate-800 border border-slate-200/80 text-[11px] font-semibold rounded-lg shadow-2xs">
+                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 border border-slate-200 text-[11px] font-semibold rounded-lg shadow-2xs">
                           {formatClassRange(subject)}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 mt-3 text-xs text-slate-700/80 font-medium">
+                      <div className="flex items-center gap-2 mt-3 text-xs text-slate-500 font-medium">
                         <span>Display Order: <strong className="text-slate-900">{subject.display_order || subject.displayOrder || 1}</strong></span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 font-mono text-[10px] bg-white/75 text-slate-800 border border-slate-900/10 px-2 py-0.5 rounded-md shadow-2xs">
-                          <span className="h-2 w-2 rounded-full inline-block border border-slate-400" style={{ backgroundColor: cardBgColor }} />
-                          {iconNameVal} ({cardBgColor})
-                        </span>
                       </div>
 
-                      <p className="text-xs text-slate-700/90 mt-2.5 leading-relaxed line-clamp-2 font-normal">
+                      <p className="text-xs text-slate-600 mt-2.5 leading-relaxed line-clamp-2 font-normal">
                         {subject.description || "No description provided."}
                       </p>
                     </div>
@@ -499,13 +519,13 @@ export const Subjects = () => {
                 </div>
 
                 {/* Card Action Footer */}
-                <div className="bg-white/60 backdrop-blur-xs px-5 py-3 border-t border-slate-900/10 flex items-center justify-end gap-2 shrink-0">
+                <div className="bg-slate-50/80 px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => openEditModal(subject)}
                     icon={Edit2}
-                    className="bg-white/90 hover:bg-white text-slate-800 border-slate-300 shadow-2xs"
+                    className="bg-white hover:bg-slate-50 text-slate-800 border-slate-300 shadow-2xs"
                   >
                     Edit Subject
                   </Button>
@@ -514,7 +534,7 @@ export const Subjects = () => {
                     size="sm"
                     onClick={() => handleDeleteTrigger(subject)}
                     icon={Trash2}
-                    className="bg-white/90 hover:bg-red-50 text-red-700 border-red-200 hover:border-red-300 shadow-2xs"
+                    className="bg-white hover:bg-red-50 text-red-700 border-red-200 hover:border-red-300 shadow-2xs"
                   >
                     Delete
                   </Button>
@@ -644,54 +664,57 @@ export const Subjects = () => {
             </div>
           </div>
 
-          {/* Subject Symbol Selector */}
-          <SubjectIconPicker
-            value={iconName}
-            onChange={setIconName}
-            disabled={formLoading || uploading}
-          />
-
-          {/* Subject Color Selector */}
-          <SubjectColorPicker
-            value={backgroundColor}
-            onChange={setBackgroundColor}
-            disabled={formLoading || uploading}
-          />
-
-          {/* LIVE PREVIEW BOX */}
-          <div className="space-y-2 select-none">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> Live Card Preview
+          {/* Subject Logo Image Upload Field */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center justify-between">
+              <span>Subject Logo Image <span className="text-red-500">*</span></span>
+              <span className="text-[10px] text-slate-400 font-normal">PNG, JPG, WEBP (Max 5MB)</span>
             </label>
-            <div
-              className="p-6 rounded-2xl border border-slate-900/10 shadow-xs transition-all duration-300 flex flex-col items-center justify-center text-center min-h-[160px] relative overflow-hidden"
-              style={{ backgroundColor: backgroundColor || "#EDE7F6" }}
-            >
-              {/* Inner Circular Icon Container */}
-              <div className="h-16 w-16 rounded-full bg-white/80 backdrop-blur-xs flex items-center justify-center shadow-xs border border-slate-900/10 mb-3 transition-all duration-200">
-                <SubjectIcon
-                  iconName={iconName}
-                  subjectName={name}
-                  color="#1E293B"
-                  className="h-8 w-8 transition-all duration-200 text-slate-800"
-                />
+
+            {logoPreview ? (
+              <div className="space-y-2 border border-slate-200 p-3 rounded-xl bg-slate-50/50">
+                <div className="h-24 w-full rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center p-2">
+                  <img
+                    src={logoPreview}
+                    alt="Subject logo preview"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <label className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 cursor-pointer shadow-xs transition-all flex items-center gap-1.5">
+                    <Upload className="h-3.5 w-3.5 text-slate-500" /> Replace Logo
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      onChange={handleLogoSelect}
+                      disabled={formLoading}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleLogoRemove}
+                    disabled={formLoading}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    title="Remove Logo"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-
-              {/* Subject Name */}
-              <h4 className="text-base font-bold text-slate-900 leading-tight">
-                {name.trim() || "Subject Name Preview"}
-              </h4>
-
-              {/* Description Preview */}
-              <p className="text-xs text-slate-700/80 mt-1 line-clamp-1 font-medium">
-                {description.trim() || "Subject card layout preview..."}
-              </p>
-
-              {/* Symbol & HEX Badge */}
-              <span className="mt-3 text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-md bg-white/75 text-slate-800 border border-slate-900/10 shadow-2xs">
-                Symbol: {iconName} • {backgroundColor}
-              </span>
-            </div>
+            ) : (
+              <label className="border-2 border-dashed border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all text-center group">
+                <ImageIcon className="h-6 w-6 text-slate-400 group-hover:text-primary transition-colors mb-1" />
+                <span className="text-xs font-semibold text-slate-600 group-hover:text-primary">Click to upload Subject Logo Image</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={handleLogoSelect}
+                  disabled={formLoading}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
 
           {/* Subject Banner Image Upload Field */}
@@ -745,6 +768,37 @@ export const Subjects = () => {
                 />
               </label>
             )}
+          </div>
+
+          {/* LIVE PREVIEW BOX */}
+          <div className="space-y-2 select-none">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Live Card Preview
+            </label>
+            <div className="p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-xs transition-all duration-300 flex flex-col items-center justify-center text-center min-h-[170px] relative overflow-hidden">
+              {/* Inner Circular/Rounded Logo Image Container */}
+              <div className="h-16 w-16 rounded-2xl bg-white flex items-center justify-center shadow-xs border border-slate-200 mb-3 overflow-hidden p-1.5 shrink-0">
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="Subject logo preview"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <ImageIcon className="h-7 w-7 text-slate-300" />
+                )}
+              </div>
+
+              {/* Subject Name */}
+              <h4 className="text-base font-bold text-slate-900 leading-tight">
+                {name.trim() || "Subject Name Preview"}
+              </h4>
+
+              {/* Description Preview */}
+              <p className="text-xs text-slate-500 mt-1 line-clamp-1 font-medium max-w-xs">
+                {description.trim() || "Subject card layout preview..."}
+              </p>
+            </div>
           </div>
 
           {/* Progress indicator */}

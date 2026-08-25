@@ -3,7 +3,6 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
-  Bookmark,
   GraduationCap,
   FileText,
   FileClock,
@@ -48,7 +47,6 @@ export const Sidebar = ({ isOpen, toggleSidebar, isMobile }) => {
   const menuItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/subjects", label: "Subjects", icon: BookOpen },
-    { path: "/chapters", label: "Chapters", icon: Bookmark },
     { path: "/classes", label: "Classes", icon: GraduationCap },
     {
       label: "Tests",

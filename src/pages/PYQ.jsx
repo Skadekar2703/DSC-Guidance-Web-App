@@ -10,7 +10,7 @@ import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { SearchBar } from "../components/common/SearchBar";
 import { FileUpload } from "../components/forms/FileUpload";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { Plus, Edit2, Trash2, Eye, EyeOff, FileText, ExternalLink, Link2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, FileText, ExternalLink } from "lucide-react";
 
 export const PYQ = () => {
   const { showToast } = useToast();
@@ -66,7 +66,6 @@ export const PYQ = () => {
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [description, setDescription] = useState("");
-  const [pdfSource, setPdfSource] = useState("upload"); // upload | external
   const [pdfUrl, setPdfUrl] = useState("");
   const [storagePath, setStoragePath] = useState("");
   const [published, setPublished] = useState(true);
@@ -112,7 +111,6 @@ export const PYQ = () => {
     setClassId("");
     setSubjectId(subjects[0]?.id || "");
     setDescription("");
-    setPdfSource("upload");
     setPdfUrl("");
     setStoragePath("");
     setPublished(true);
@@ -127,7 +125,6 @@ export const PYQ = () => {
     setClassId(paper.classId || "");
     setSubjectId(paper.subjectId || "");
     setDescription(paper.description || "");
-    setPdfSource(paper.storagePath ? "upload" : "external");
     setPdfUrl(paper.pdfUrl || "");
     setStoragePath(paper.storagePath || "");
     setPublished(paper.published !== false);
@@ -148,12 +145,7 @@ export const PYQ = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !subjectId || !pdfUrl) {
-      showToast("Paper Title, Subject, and PDF Reference are required.", "warning");
-      return;
-    }
-
-    if (pdfSource === "external" && pdfUrl && !pdfUrl.trim().startsWith("http")) {
-      showToast("Please provide a valid PDF link starting with http:// or https://", "warning");
+      showToast("Paper Title, Subject, and PDF File are required.", "warning");
       return;
     }
 
@@ -166,21 +158,24 @@ export const PYQ = () => {
       classId: classId || null,
       description: description.trim(),
       pdfUrl: pdfUrl.trim(),
-      storagePath: pdfSource === "upload" ? storagePath : "",
+      storagePath: storagePath || "",
       published: Boolean(published),
       active: true,
     };
 
     try {
       if (editPaper) {
-        if (pdfSource === "external" && editPaper.storagePath) {
+        await updatePyqPaper(editPaper.id, paperData);
+
+        // Delete old storage file if replaced
+        if (editPaper.storagePath && editPaper.storagePath !== storagePath) {
           try {
             await deleteFile(editPaper.storagePath);
           } catch (storageErr) {
-            console.warn("Storage cleanup ignored:", storageErr);
+            console.warn("Storage cleanup warning:", storageErr);
           }
         }
-        await updatePyqPaper(editPaper.id, paperData);
+
         showToast("Previous paper updated successfully.", "success");
       } else {
         await addPyqPaper(paperData);
@@ -534,56 +529,19 @@ export const PYQ = () => {
             />
           </div>
 
-          {/* PDF Source */}
+          {/* PDF Source Upload */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Question Paper PDF Source</label>
-            <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="pdfSource"
-                  checked={pdfSource === "upload"}
-                  onChange={() => setPdfSource("upload")}
-                  className="text-primary focus:ring-primary"
-                />
-                Upload PDF File
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="pdfSource"
-                  checked={pdfSource === "external"}
-                  onChange={() => setPdfSource("external")}
-                  className="text-primary focus:ring-primary"
-                />
-                External PDF Link
-              </label>
-            </div>
-
-            {pdfSource === "upload" ? (
-              <FileUpload
-                onUploadSuccess={handleUploadSuccess}
-                onClear={handleUploadClear}
-                currentPath={storagePath}
-                currentUrl={pdfUrl}
-                bucket="study-materials"
-                folder="pyq"
-              />
-            ) : (
-              <div className="space-y-1.5 pt-1">
-                <div className="relative">
-                  <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 shrink-0" />
-                  <input
-                    type="url"
-                    value={pdfUrl}
-                    onChange={(e) => setPdfUrl(e.target.value)}
-                    placeholder="https://example.com/pyq-2024.pdf"
-                    required={pdfSource === "external"}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none"
-                  />
-                </div>
-              </div>
-            )}
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+              Upload Question Paper PDF <span className="text-red-500">*</span>
+            </label>
+            <FileUpload
+              onUploadSuccess={handleUploadSuccess}
+              onClear={handleUploadClear}
+              currentPath={storagePath}
+              currentUrl={pdfUrl}
+              bucket="study-materials"
+              folder="pyq"
+            />
           </div>
 
           {/* Publish Status */}

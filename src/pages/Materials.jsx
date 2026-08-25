@@ -193,14 +193,17 @@ export const Materials = () => {
 
     try {
       if (editMaterial) {
-        if (pdfSource === "external" && editMaterial.storagePath) {
+        await updateMaterial(editMaterial.id, materialData);
+
+        // Delete old storage file if replaced or switched to external URL
+        if (editMaterial.storagePath && (pdfSource === "external" || editMaterial.storagePath !== storagePath)) {
           try {
             await deleteFile(editMaterial.storagePath);
           } catch (storageErr) {
-            console.warn("Storage cleanup ignored:", storageErr);
+            console.warn("Storage cleanup warning:", storageErr);
           }
         }
-        await updateMaterial(editMaterial.id, materialData);
+
         showToast("Study material updated successfully.", "success");
       } else {
         await addMaterial(materialData);

@@ -10,22 +10,31 @@ export const addSubject = async (data) => {
   const bgColorVal = data.background_color ?? data.backgroundColor ?? data.icon_color ?? data.iconColor ?? "#EDE7F6";
   const activeVal = data.active !== undefined ? Boolean(data.active) : Boolean(data.is_active ?? data.is_published ?? true);
 
+  const logoUrlVal = data.logo_url ?? data.logoUrl ?? data.logo_image_url ?? data.logoImageUrl ?? null;
+  const bannerUrlVal = data.banner_url ?? data.bannerUrl ?? data.banner_image_url ?? data.bannerImageUrl ?? null;
+
   let payload = {
     name: data.name,
     description: data.description || "",
     display_order: Number(data.displayOrder ?? data.display_order ?? 0),
     is_active: activeVal,
     is_published: activeVal,
-    icon_name: iconNameVal,
-    icon_key: iconNameVal,
-    icon: iconNameVal,
-    background_color: bgColorVal,
-    icon_color: bgColorVal,
-    color: bgColorVal,
+    logo_url: logoUrlVal,
+    banner_url: bannerUrlVal,
     subject_type: data.subject_type ?? data.subjectType ?? "class_based",
     class_range: data.class_range ?? data.classRange ?? null,
-    banner_url: data.banner_url ?? data.bannerUrl ?? null,
   };
+
+  if (data.icon_name || data.iconName) {
+    const iconVal = data.icon_name ?? data.iconName;
+    payload.icon_name = iconVal;
+    payload.icon_key = iconVal;
+  }
+  if (data.background_color || data.backgroundColor) {
+    const colorVal = data.background_color ?? data.backgroundColor;
+    payload.background_color = colorVal;
+    payload.icon_color = colorVal;
+  }
 
   if (data.id) {
     payload.id = data.id;
@@ -100,8 +109,13 @@ export const updateSubject = async (id, data) => {
     payload.class_range = data.class_range ?? data.classRange;
   }
 
+  if (data.logo_url !== undefined) payload.logo_url = data.logo_url;
+  else if (data.logoUrl !== undefined) payload.logo_url = data.logoUrl;
+  else if (data.logoImageUrl !== undefined) payload.logo_url = data.logoImageUrl;
+
   if (data.banner_url !== undefined) payload.banner_url = data.banner_url;
   else if (data.bannerUrl !== undefined) payload.banner_url = data.bannerUrl;
+  else if (data.bannerImageUrl !== undefined) payload.banner_url = data.bannerImageUrl;
 
   let { error } = await supabase
     .from("subjects")

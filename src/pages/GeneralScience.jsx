@@ -133,15 +133,17 @@ export const GeneralScience = () => {
 
     try {
       if (editItem) {
-        // Delete old storage file if source changed
-        if (pdfSource === "external" && editItem.storagePath) {
+        await updateGeneralScienceItem(editItem.id, contentData);
+
+        // Delete old storage file if replaced or switched to external URL
+        if (editItem.storagePath && (pdfSource === "external" || editItem.storagePath !== storagePath)) {
           try {
             await deleteFile(editItem.storagePath);
           } catch (storageErr) {
             console.warn("Storage cleanup warning:", storageErr);
           }
         }
-        await updateGeneralScienceItem(editItem.id, contentData);
+
         showToast("General Science resource updated successfully.", "success");
       } else {
         await addGeneralScienceItem(contentData);
