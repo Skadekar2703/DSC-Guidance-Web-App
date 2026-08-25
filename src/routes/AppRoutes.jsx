@@ -127,6 +127,8 @@ export const AppRoutes = () => {
         <Route path="/tests/class-wise" element={<Navigate to="/tests?type=CLASS_WISE" replace />} />
         <Route path="/tests/practice" element={<Navigate to="/tests?type=PRACTICE" replace />} />
         <Route path="/test-series" element={<TestSeries />} />
+        <Route path="/test%20series" element={<Navigate to="/test-series" replace />} />
+        <Route path="/test series" element={<Navigate to="/test-series" replace />} />
         <Route path="/resources" element={<Resources />} />
         <Route path="/users" element={<Users />} />
         <Route path="/settings" element={<Settings />} />

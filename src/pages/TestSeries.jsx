@@ -10,7 +10,7 @@ import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { SearchBar } from "../components/common/SearchBar";
 import { FileUpload } from "../components/forms/FileUpload";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { Plus, Edit2, Trash2, Eye, EyeOff, Layers, Folders, CheckSquare, Square, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, Layers, FileText, ExternalLink } from "lucide-react";
 
 export const TestSeries = () => {
   const { showToast } = useToast();
@@ -20,9 +20,6 @@ export const TestSeries = () => {
     sorting: [["display_order", "asc"]],
   });
   const { data: classes, loading: loadingClasses } = useSupabaseCollection("classes", {
-    sorting: [["display_order", "asc"]],
-  });
-  const { data: tests, loading: loadingTests } = useSupabaseCollection("tests", {
     sorting: [["display_order", "asc"]],
   });
   const { data: seriesList, loading: loadingSeries } = useSupabaseCollection("testSeries", {
@@ -65,7 +62,6 @@ export const TestSeries = () => {
   const [description, setDescription] = useState("");
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
-  const [selectedTestIds, setSelectedTestIds] = useState([]);
   const [pdfUrl, setPdfUrl] = useState("");
   const [storagePath, setStoragePath] = useState("");
   const [fileName, setFileName] = useState("");
@@ -80,15 +76,6 @@ export const TestSeries = () => {
   // Lookups
   const subjectMap = subjects.reduce((acc, s) => ({ ...acc, [s.id]: s.name }), {});
   const classMap = classes.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {});
-
-  // Available subjects for forms (all active subjects are available)
-  const availableFormSubjects = React.useMemo(() => {
-    return subjects;
-  }, [subjects]);
-
-  // Form conditional test selections (only tests of the selected subject can be added)
-  const availableTests = tests.filter((t) => t.subjectId === subjectId || t.subject_id === subjectId);
-
   // Filter Series
   const filteredSeries = seriesList.filter((series) => {
     const matchesSearch = series.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -109,7 +96,6 @@ export const TestSeries = () => {
     setDescription("");
     setClassId("");
     setSubjectId(subjects[0]?.id || "");
-    setSelectedTestIds([]);
     setPdfUrl("");
     setStoragePath("");
     setFileName("");
@@ -124,7 +110,6 @@ export const TestSeries = () => {
     setDescription(series.description || "");
     setClassId(series.classId || "");
     setSubjectId(series.subjectId || "");
-    setSelectedTestIds(series.tests || []);
     setPdfUrl(series.pdfUrl || series.pdf_url || "");
     setStoragePath(series.storagePath || series.storage_path || "");
     setFileName(series.fileName || series.file_name || "");
@@ -148,16 +133,15 @@ export const TestSeries = () => {
     setFileSize(null);
   };
 
-  const handleTestToggle = (id) => {
-    setSelectedTestIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !subjectId) {
-      showToast("Title and Subject are required.", "warning");
+      showToast("Bundle Title and Subject Pathway are required.", "warning");
+      return;
+    }
+
+    if (!pdfUrl) {
+      showToast("Test Series PDF Resource is required. Please upload a PDF document.", "warning");
       return;
     }
 
@@ -167,7 +151,7 @@ export const TestSeries = () => {
       description: description.trim(),
       subjectId,
       classId: classId || null,
-      tests: selectedTestIds,
+      tests: [],
       pdfUrl,
       storagePath,
       fileName,
@@ -318,7 +302,7 @@ export const TestSeries = () => {
       </div>
 
       {/* Series Listing */}
-      {loadingSubjects || loadingClasses || loadingTests || loadingSeries ? (
+      {loadingSubjects || loadingClasses || loadingSeries ? (
         <LoadingSpinner message="Retrieving test series bundles..." />
       ) : filteredSeries.length === 0 ? (
         <div className="bg-white p-12 text-center rounded-2xl border border-slate-100 max-w-lg mx-auto">
@@ -373,14 +357,31 @@ export const TestSeries = () => {
                     <span className="px-2.5 py-1 bg-primary/10 text-primary text-[11px] font-semibold rounded-lg">
                       Subject: {subjectMap[series.subjectId] || "Unassigned"}
                     </span>
-                    <span className="px-2.5 py-1 bg-slate-50 text-slate-500 text-[11px] font-medium rounded-lg border border-slate-100 flex items-center gap-1">
-                      <Folders className="h-3 w-3" /> {bundledTestCount} Test{bundledTestCount !== 1 ? "s" : ""}
-                    </span>
+                    {series.pdfUrl || series.pdf_url ? (
+                      <span className="px-2.5 py-1 bg-red-50 text-red-600 text-[11px] font-semibold rounded-lg border border-red-100 flex items-center gap-1">
+                        <FileText className="h-3 w-3" /> PDF Resource
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-slate-50 text-slate-400 text-[11px] font-medium rounded-lg border border-slate-100 flex items-center gap-1">
+                        <FileText className="h-3 w-3" /> No PDF
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Card footer actions */}
                 <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4 shrink-0">
+                  {(series.pdfUrl || series.pdf_url) && (
+                    <a
+                      href={series.pdfUrl || series.pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 hover:bg-slate-100 text-primary rounded-xl transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1.5"
+                      title="Open PDF Document"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Open PDF
+                    </a>
+                  )}
                   <button
                     onClick={() => openEditModal(series)}
                     className="p-2 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-xl transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1.5"
@@ -452,10 +453,7 @@ export const TestSeries = () => {
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject Pathway <span className="text-red-500">*</span></label>
               <select
                 value={subjectId}
-                onChange={(e) => {
-                  setSubjectId(e.target.value);
-                  setSelectedTestIds([]); // reset selected tests when subject changes
-                }}
+                onChange={(e) => setSubjectId(e.target.value)}
                 required
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none font-medium"
               >
@@ -479,39 +477,6 @@ export const TestSeries = () => {
                 ))}
               </select>
             </div>
-          </div>
-
-          {/* Tests Selection Checkbox List */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Include Tests in Bundle</label>
-            {!subjectId ? (
-              <p className="text-xs text-slate-400 italic">Select a subject first to view available tests.</p>
-            ) : availableTests.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">No tests created under this subject yet.</p>
-            ) : (
-              <div className="max-h-48 overflow-y-auto space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                {availableTests.map((test) => {
-                  const isChecked = selectedTestIds.includes(test.id);
-
-                  return (
-                    <div
-                      key={test.id}
-                      onClick={() => handleTestToggle(test.id)}
-                      className={`flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-                        isChecked ? "bg-white border border-primary/30 text-slate-800 shadow-2xs" : "text-slate-600 hover:bg-white/60"
-                      }`}
-                    >
-                      {isChecked ? (
-                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
-                      ) : (
-                        <Square className="h-4 w-4 text-slate-400 shrink-0" />
-                      )}
-                      <span className="truncate">{test.title}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           {/* Publish Status */}
@@ -548,8 +513,8 @@ export const TestSeries = () => {
         isOpen={deleteId !== null}
         onClose={() => setDeleteId(null)}
         onConfirm={handleDeleteConfirm}
-        title="Delete Test Series Bundle?"
-        message={`Are you sure you want to delete "${deleteName}"? Tests inside the bundle will remain intact.`}
+        title="Delete Test Series?"
+        message={`Are you sure you want to delete "${deleteName}"?`}
         loading={deleteLoading}
       />
     </div>
