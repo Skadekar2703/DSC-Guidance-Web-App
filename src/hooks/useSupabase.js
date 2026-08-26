@@ -19,6 +19,8 @@ const TABLE_MAP = {
   general_science: "general_science",
   admins: "profiles",
   profiles: "profiles",
+  subscriptionPlans: "subscription_plans",
+  subscription_plans: "subscription_plans",
 };
 
 /**
@@ -32,6 +34,7 @@ export const normalizeRow = (row) => {
 
   const resolvedIcon = row.icon_name || row.iconName || row.icon_key || row.iconKey || row.icon || "book";
   const resolvedColor = row.background_color || row.backgroundColor || row.icon_color || row.iconColor || row.brand_color || row.color || "#EDE7F6";
+  const resolvedAccessType = row.access_type || row.accessType || "free";
 
   return {
     ...row,
@@ -51,6 +54,8 @@ export const normalizeRow = (row) => {
     coverImage: row.cover_image || row.coverImage || "",
     active: row.is_published ?? row.is_active ?? row.active ?? true,
     published: row.is_published ?? row.published ?? true,
+    accessType: resolvedAccessType,
+    access_type: resolvedAccessType,
     type: row.material_type || row.type || "PDF",
     materialType: row.material_type || row.materialType || "PDF",
     pdfUrl: row.pdf_url || row.pdfUrl || "",

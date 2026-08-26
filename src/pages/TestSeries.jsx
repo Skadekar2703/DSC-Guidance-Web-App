@@ -51,6 +51,7 @@ export const TestSeries = () => {
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [accessFilter, setAccessFilter] = useState("all");
 
   // Modal forms state
   const [modalOpen, setModalOpen] = useState(false);
@@ -67,6 +68,7 @@ export const TestSeries = () => {
   const [fileName, setFileName] = useState("");
   const [fileSize, setFileSize] = useState(null);
   const [published, setPublished] = useState(true);
+  const [accessType, setAccessType] = useState("free");
 
   // Deletion State
   const [deleteId, setDeleteId] = useState(null);
@@ -86,8 +88,9 @@ export const TestSeries = () => {
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && series.published === true) ||
       (statusFilter === "draft" && series.published === false);
+    const matchesAccess = accessFilter === "all" || (series.accessType || series.access_type || "free") === accessFilter;
 
-    return matchesSearch && matchesSubject && matchesClass && matchesStatus;
+    return matchesSearch && matchesSubject && matchesClass && matchesStatus && matchesAccess;
   });
 
   const openAddModal = () => {
@@ -101,6 +104,7 @@ export const TestSeries = () => {
     setFileName("");
     setFileSize(null);
     setPublished(true);
+    setAccessType("free");
     setModalOpen(true);
   };
 
@@ -115,6 +119,7 @@ export const TestSeries = () => {
     setFileName(series.fileName || series.file_name || "");
     setFileSize(series.fileSize || series.file_size || null);
     setPublished(series.published !== false);
+    setAccessType(series.accessType || series.access_type || "free");
     setModalOpen(true);
   };
 
@@ -158,6 +163,8 @@ export const TestSeries = () => {
       fileSize,
       published: Boolean(published),
       active: true,
+      accessType,
+      access_type: accessType,
     };
 
     try {
@@ -298,6 +305,19 @@ export const TestSeries = () => {
               <option value="draft">Drafts Only</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-slate-400 shrink-0">Access:</label>
+            <select
+              value={accessFilter}
+              onChange={(e) => setAccessFilter(e.target.value)}
+              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none"
+            >
+              <option value="all">All Access</option>
+              <option value="free">Free</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -327,20 +347,31 @@ export const TestSeries = () => {
                     <div className="p-2.5 bg-primary/10 text-primary rounded-xl shrink-0">
                       <Layers className="h-5 w-5" />
                     </div>
-                    <button
-                      onClick={() => togglePublished(series)}
-                      className="cursor-pointer shrink-0"
-                    >
-                      {series.published !== false ? (
-                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold rounded-full">
-                          <Eye className="h-3 w-3" /> Published
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(series.accessType || series.access_type || "free") === "premium" ? (
+                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold rounded-full">
+                          ⭐ Premium
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-200 text-[11px] font-bold rounded-full">
-                          <EyeOff className="h-3 w-3" /> Draft
+                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold rounded-full">
+                          Free
                         </span>
                       )}
-                    </button>
+                      <button
+                        onClick={() => togglePublished(series)}
+                        className="cursor-pointer shrink-0"
+                      >
+                        {series.published !== false ? (
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold rounded-full">
+                            <Eye className="h-3 w-3" /> Published
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-200 text-[11px] font-bold rounded-full">
+                            <EyeOff className="h-3 w-3" /> Draft
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -494,6 +525,37 @@ export const TestSeries = () => {
                 {published ? "Published" : "Draft"}
               </span>
             </label>
+          </div>
+
+          {/* Access Control */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Access Control</label>
+            <div className="flex items-center gap-6 pt-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="seriesAccessType"
+                  value="free"
+                  checked={accessType === "free"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="w-4 h-4 text-primary focus:ring-primary border-slate-300"
+                />
+                <span className="text-sm font-semibold text-slate-700">Free</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="seriesAccessType"
+                  value="premium"
+                  checked={accessType === "premium"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="w-4 h-4 text-amber-600 focus:ring-amber-500 border-slate-300"
+                />
+                <span className="text-sm font-bold text-amber-600 flex items-center gap-1">
+                  ⭐ Premium
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Actions */}

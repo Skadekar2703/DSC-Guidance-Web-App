@@ -56,6 +56,7 @@ export const Materials = () => {
   const [classFilter, setClassFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all"); // all, published, draft
+  const [accessFilter, setAccessFilter] = useState("all");
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -76,6 +77,7 @@ export const Materials = () => {
   const [fileSize, setFileSize] = useState(0);
   const [displayOrder, setDisplayOrder] = useState(1);
   const [published, setPublished] = useState(true);
+  const [accessType, setAccessType] = useState("free");
 
   // Deletion state
   const [deleteItem, setDeleteItem] = useState(null);
@@ -106,8 +108,9 @@ export const Materials = () => {
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && item.published === true) ||
       (statusFilter === "draft" && item.published === false);
+    const matchesAccess = accessFilter === "all" || (item.accessType || item.access_type || "free") === accessFilter;
 
-    return matchesSearch && matchesSubject && matchesChapter && matchesClass && matchesType && matchesStatus;
+    return matchesSearch && matchesSubject && matchesChapter && matchesClass && matchesType && matchesStatus && matchesAccess;
   });
 
   const openAddModal = () => {
@@ -126,6 +129,7 @@ export const Materials = () => {
     setFileSize(0);
     setDisplayOrder(materials.length + 1);
     setPublished(true);
+    setAccessType("free");
     setModalOpen(true);
   };
 
@@ -144,6 +148,7 @@ export const Materials = () => {
     setFileSize(item.fileSize || 0);
     setDisplayOrder(item.displayOrder || 1);
     setPublished(item.published !== false);
+    setAccessType(item.accessType || item.access_type || "free");
     setModalOpen(true);
   };
 
@@ -189,6 +194,8 @@ export const Materials = () => {
       displayOrder: Number(displayOrder),
       published: Boolean(published),
       active: true,
+      accessType,
+      access_type: accessType,
     };
 
     try {
@@ -388,6 +395,7 @@ export const Materials = () => {
                   <th className="px-6 py-3">Class</th>
                   <th className="px-6 py-3">Subject / Chapter</th>
                   <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Access</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
@@ -425,6 +433,17 @@ export const Materials = () => {
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-bold text-[10px] uppercase rounded-lg border border-slate-200">
                         {item.type || "NOTES"}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {(item.accessType || item.access_type || "free") === "premium" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 font-bold text-[10px] uppercase rounded-lg border border-amber-200 shadow-2xs">
+                          ⭐ Premium
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-[10px] uppercase rounded-lg border border-emerald-200">
+                          Free
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <button
@@ -630,8 +649,8 @@ export const Materials = () => {
             )}
           </div>
 
-          {/* displayOrder & Publish toggler */}
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          {/* displayOrder & Access Control & Publish toggler */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Display Order</label>
               <input
@@ -660,6 +679,37 @@ export const Materials = () => {
                   </span>
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* Access Control */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Access Control</label>
+            <div className="flex items-center gap-6 pt-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="materialAccessType"
+                  value="free"
+                  checked={accessType === "free"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="w-4 h-4 text-primary focus:ring-primary border-slate-300"
+                />
+                <span className="text-sm font-semibold text-slate-700">Free</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="materialAccessType"
+                  value="premium"
+                  checked={accessType === "premium"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="w-4 h-4 text-amber-600 focus:ring-amber-500 border-slate-300"
+                />
+                <span className="text-sm font-bold text-amber-600 flex items-center gap-1">
+                  ⭐ Premium
+                </span>
+              </label>
             </div>
           </div>
 

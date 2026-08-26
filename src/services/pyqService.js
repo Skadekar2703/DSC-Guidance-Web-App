@@ -15,6 +15,7 @@ export const addPyqPaper = async (data) => {
     external_url: data.externalUrl || data.external_url || null,
     display_order: Number(data.displayOrder ?? data.display_order ?? 0),
     is_published: data.published !== undefined ? Boolean(data.published) : Boolean(data.is_published ?? true),
+    access_type: data.accessType || data.access_type || "free",
   };
 
   let { data: result, error } = await supabase
@@ -63,6 +64,7 @@ export const updatePyqPaper = async (id, data) => {
   if (data.displayOrder !== undefined || data.display_order !== undefined) payload.display_order = Number(data.displayOrder ?? data.display_order);
   if (data.published !== undefined) payload.is_published = Boolean(data.published);
   if (data.is_published !== undefined) payload.is_published = Boolean(data.is_published);
+  if (data.accessType !== undefined || data.access_type !== undefined) payload.access_type = data.accessType || data.access_type;
 
   let { error } = await supabase
     .from("previous_year_questions")

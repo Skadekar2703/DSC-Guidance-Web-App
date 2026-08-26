@@ -58,6 +58,7 @@ export const Tests = () => {
   const [classFilter, setClassFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState(typeParam || "all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [accessFilter, setAccessFilter] = useState("all");
 
   // Keep typeFilter in sync when routing changes
   useEffect(() => {
@@ -87,6 +88,7 @@ export const Tests = () => {
   const [testLink, setTestLink] = useState("");
   const [displayOrder, setDisplayOrder] = useState(1);
   const [published, setPublished] = useState(true);
+  const [accessType, setAccessType] = useState("free");
 
   // Deletion State
   const [deleteId, setDeleteId] = useState(null);
@@ -124,8 +126,9 @@ export const Tests = () => {
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "published" && test.published === true) ||
       (statusFilter === "draft" && test.published === false);
+    const matchesAccess = accessFilter === "all" || (test.accessType || test.access_type || "free") === accessFilter;
 
-    return matchesSearch && matchesSubject && matchesChapter && matchesClass && matchesType && matchesStatus;
+    return matchesSearch && matchesSubject && matchesChapter && matchesClass && matchesType && matchesStatus && matchesAccess;
   });
 
   const openAddModal = () => {
@@ -143,6 +146,7 @@ export const Tests = () => {
     setTestLink("");
     setDisplayOrder(tests.length + 1);
     setPublished(true);
+    setAccessType("free");
     setModalOpen(true);
   };
 
@@ -161,6 +165,7 @@ export const Tests = () => {
     setTestLink(test.testLink || test.external_url || test.pdf_url || test.pdfUrl || "");
     setDisplayOrder(test.displayOrder || test.display_order || 1);
     setPublished(test.published !== false);
+    setAccessType(test.accessType || test.access_type || "free");
     setModalOpen(true);
   };
 
@@ -198,6 +203,8 @@ export const Tests = () => {
       displayOrder: Number(displayOrder),
       published: Boolean(published),
       active: true,
+      accessType,
+      access_type: accessType,
     };
 
     try {
@@ -390,10 +397,23 @@ export const Tests = () => {
               <option value="draft">Drafts Only</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-slate-400">Access:</label>
+            <select
+              value={accessFilter}
+              onChange={(e) => setAccessFilter(e.target.value)}
+              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white focus:outline-none"
+            >
+              <option value="all">All Access</option>
+              <option value="free">Free</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Tests Data Table */}
+      {/* Tests Content List - Responsive Layout */}
       {loadingSubjects || loadingChapters || loadingClasses || loadingTests ? (
         <LoadingSpinner message="Retrieving test directory..." />
       ) : filteredTests.length === 0 ? (
@@ -405,134 +425,256 @@ export const Tests = () => {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                  <th className="px-6 py-3">Test Title</th>
-                  <th className="px-6 py-3">Class</th>
-                  <th className="px-6 py-3">Subject / Chapter</th>
-                  <th className="px-6 py-3">Category</th>
-                  <th className="px-6 py-3">Link URL</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                {filteredTests.map((test) => {
-                  const testUrl = test.testLink || test.external_url || "";
+        <>
+          {/* Desktop Table View (hidden on mobile, visible md+) */}
+          <div className="hidden md:block bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="px-6 py-3.5 w-2/5">Test</th>
+                    <th className="px-4 py-3.5">Class</th>
+                    <th className="px-4 py-3.5">Subject</th>
+                    <th className="px-4 py-3.5">Category</th>
+                    <th className="px-4 py-3.5">Access</th>
+                    <th className="px-4 py-3.5">Status</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
+                  {filteredTests.map((test) => {
+                    const testUrl = test.testLink || test.external_url || "";
+                    const isPremium = (test.accessType || test.access_type || "free") === "premium";
 
-                  return (
-                    <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0">
-                            <FileSpreadsheet className="h-4.5 w-4.5" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-800">{test.title}</div>
-                            <div className="text-xs text-slate-400 font-medium mt-0.5">
-                              {test.questionCount || 30} Qs • {test.duration || 30} Mins • {test.marks || 30} Marks
+                    return (
+                      <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
+                        {/* Test Title & Description */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0 mt-0.5">
+                              <FileSpreadsheet className="h-4.5 w-4.5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-slate-800 text-sm leading-snug">{test.title}</div>
+                              {test.description && (
+                                <p className="text-xs text-slate-400 font-medium mt-0.5 line-clamp-1">
+                                  {test.description}
+                                </p>
+                              )}
+                              <div className="text-[11px] text-slate-400 font-semibold mt-1">
+                                {test.questionCount || 30} Qs • {test.duration || 30} Mins • {test.marks || 30} Marks
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-xs text-slate-600">
-                        {classMap[test.classId] || "All Classes"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-800 text-xs">
-                          {subjectMap[test.subjectId] || "Unassigned"}
-                        </div>
-                        {test.chapterId && chapterMap[test.chapterId] && (
-                          <div className="text-[11px] text-slate-400 font-medium">
-                            {chapterMap[test.chapterId]}
+                        </td>
+
+                        {/* Class */}
+                        <td className="px-4 py-4 font-semibold text-xs text-slate-600">
+                          {classMap[test.classId] || "All Classes"}
+                        </td>
+
+                        {/* Subject */}
+                        <td className="px-4 py-4">
+                          <div className="font-semibold text-slate-800 text-xs">
+                            {subjectMap[test.subjectId] || "Unassigned"}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-bold text-[10px] uppercase rounded-lg border border-slate-200">
-                          {test.testType || "DAILY"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {testUrl ? (
-                          <div className="flex items-center gap-2 max-w-xs">
-                            <a
-                              href={testUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary font-mono truncate hover:underline"
-                            >
-                              {testUrl}
-                            </a>
-                            <button
-                              onClick={() => copyToClipboard(test.id, testUrl)}
-                              className="p-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer shrink-0"
-                              title="Copy URL"
-                            >
-                              {copiedId === test.id ? (
-                                <Check className="h-3.5 w-3.5 text-emerald-600" />
-                              ) : (
-                                <Copy className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">No link</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => togglePublished(test)}
-                          className="cursor-pointer"
-                        >
-                          {test.published !== false ? (
-                            <span className="flex items-center gap-1 w-fit px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-full">
-                              <Eye className="h-3 w-3" /> Published
+                          {test.chapterId && chapterMap[test.chapterId] && (
+                            <div className="text-[11px] text-slate-400 font-medium truncate max-w-[140px]">
+                              {chapterMap[test.chapterId]}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Category */}
+                        <td className="px-4 py-4">
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-bold text-[10px] uppercase rounded-lg border border-slate-200">
+                            {test.testType || "DAILY"}
+                          </span>
+                        </td>
+
+                        {/* Access */}
+                        <td className="px-4 py-4">
+                          {isPremium ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 font-bold text-[10px] uppercase rounded-lg border border-amber-200">
+                              ⭐ PREMIUM
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 w-fit px-2.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-200 text-xs font-bold rounded-full">
-                              <EyeOff className="h-3 w-3" /> Draft
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-[10px] uppercase rounded-lg border border-emerald-200">
+                              FREE
                             </span>
                           )}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {testUrl && (
-                            <a
-                              href={testUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 hover:bg-slate-100 text-primary rounded-lg transition-colors cursor-pointer"
-                              title="Launch Form URL"
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-4">
+                          <button
+                            onClick={() => togglePublished(test)}
+                            className="cursor-pointer"
+                          >
+                            {test.published !== false ? (
+                              <span className="flex items-center gap-1 w-fit px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-full">
+                                <Eye className="h-3 w-3" /> Published
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 w-fit px-2.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-200 text-xs font-bold rounded-full">
+                                <EyeOff className="h-3 w-3" /> Draft
+                              </span>
+                            )}
+                          </button>
+                        </td>
+
+                        {/* Actions: Open Link, Edit, Delete */}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {testUrl && (
+                              <a
+                                href={testUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all cursor-pointer"
+                                title="Open Link"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                <span>Open Link</span>
+                              </a>
+                            )}
+                            <button
+                              onClick={() => openEditModal(test)}
+                              className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Test"
                             >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )}
-                          <button
-                            onClick={() => openEditModal(test)}
-                            className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTrigger(test)}
-                            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTrigger(test)}
+                              className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Test"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Mobile Responsive Cards View (visible on mobile, hidden md+) */}
+          <div className="block md:hidden space-y-4">
+            {filteredTests.map((test) => {
+              const testUrl = test.testLink || test.external_url || "";
+              const isPremium = (test.accessType || test.access_type || "free") === "premium";
+
+              return (
+                <div
+                  key={test.id}
+                  className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0 mt-0.5">
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-slate-800 text-sm leading-snug">{test.title}</h3>
+                        {test.description && (
+                          <p className="text-xs text-slate-400 font-medium mt-0.5 line-clamp-2">
+                            {test.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Badges Row */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {isPremium ? (
+                      <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-full">
+                        ⭐ PREMIUM
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-full">
+                        FREE
+                      </span>
+                    )}
+
+                    <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold uppercase rounded-full">
+                      {test.testType || "DAILY"}
+                    </span>
+
+                    <button
+                      onClick={() => togglePublished(test)}
+                      className="cursor-pointer"
+                    >
+                      {test.published !== false ? (
+                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-full">
+                          <Eye className="h-3 w-3" /> Published
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold rounded-full">
+                          <EyeOff className="h-3 w-3" /> Draft
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Class & Subject</span>
+                      <span className="font-semibold text-slate-700">
+                        {classMap[test.classId] || "All Classes"} • {subjectMap[test.subjectId] || "Unassigned"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Test Specs</span>
+                      <span className="font-semibold text-slate-700">
+                        {test.questionCount || 30} Qs • {test.duration || 30}m • {test.marks || 30} Marks
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Mobile Actions Footer */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    {testUrl ? (
+                      <a
+                        href={testUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-dark transition-all cursor-pointer"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        <span>Open Link</span>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">No URL set</span>
+                    )}
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(test)}
+                        className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                        title="Edit Test"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTrigger(test)}
+                        className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Test"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {/* CRUD Form Modal */}
@@ -702,8 +844,8 @@ export const Tests = () => {
             </div>
           </div>
 
-          {/* Order & Publish toggler */}
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          {/* Order & Access Control & Publish toggler */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Display Order</label>
               <input
@@ -732,6 +874,37 @@ export const Tests = () => {
                   </span>
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* Access Control */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Access Control</label>
+            <div className="flex items-center gap-6 pt-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="testAccessType"
+                  value="free"
+                  checked={accessType === "free"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="w-4 h-4 text-primary focus:ring-primary border-slate-300"
+                />
+                <span className="text-sm font-semibold text-slate-700">Free</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="testAccessType"
+                  value="premium"
+                  checked={accessType === "premium"}
+                  onChange={(e) => setAccessType(e.target.value)}
+                  className="w-4 h-4 text-amber-600 focus:ring-amber-500 border-slate-300"
+                />
+                <span className="text-sm font-bold text-amber-600 flex items-center gap-1">
+                  ⭐ Premium
+                </span>
+              </label>
             </div>
           </div>
 

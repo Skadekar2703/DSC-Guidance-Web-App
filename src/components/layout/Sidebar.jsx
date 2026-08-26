@@ -15,7 +15,8 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Megaphone
+  Megaphone,
+  Crown
 } from "lucide-react";
 import { signOutUser } from "../../services/authService";
 import { useAuth } from "../../hooks/useAuth";
@@ -67,6 +68,7 @@ export const Sidebar = ({ isOpen, toggleSidebar, isMobile }) => {
     { path: "/materials", label: "Study Materials", icon: FileText },
     { path: "/announcements", label: "Announcements", icon: Megaphone },
     { path: "/resources", label: "Resources / Links", icon: FolderOpen },
+    { path: "/subscription", label: "Subscription", icon: Crown },
     { path: "/users", label: "Users", icon: Users },
     { path: "/settings", label: "Settings", icon: Settings },
   ];

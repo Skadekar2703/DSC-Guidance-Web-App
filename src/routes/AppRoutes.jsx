@@ -21,6 +21,7 @@ import Resources from "../pages/Resources";
 import Users from "../pages/Users";
 import Settings from "../pages/Settings";
 import Announcements from "../pages/Announcements";
+import Subscription from "../pages/Subscription";
 
 /**
  * Nested Dashboard Layout wrapper enforcing strict admin role authorization.
@@ -56,6 +57,7 @@ const AdminDashboardLayout = () => {
     if (path.includes("tests")) return "Quizzes & Exam Links";
     if (path.includes("test-series")) return "Test Series Bundles";
     if (path.includes("resources")) return "Generic Resources";
+    if (path.includes("subscription")) return "Subscription Settings";
     if (path.includes("users")) return "Admin Management Directory";
     if (path.includes("settings")) return "Application Settings";
     if (path.includes("announcements")) return "Announcements & Notices";
@@ -130,6 +132,8 @@ export const AppRoutes = () => {
         <Route path="/test%20series" element={<Navigate to="/test-series" replace />} />
         <Route path="/test series" element={<Navigate to="/test-series" replace />} />
         <Route path="/resources" element={<Resources />} />
+        <Route path="/subscription" element={<Subscription />} />
+        <Route path="/premium-plan" element={<Navigate to="/subscription" replace />} />
         <Route path="/users" element={<Users />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/announcements" element={<Announcements />} />

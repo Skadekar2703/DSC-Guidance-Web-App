@@ -12,6 +12,7 @@ export const addTestSeries = async (data) => {
     file_name: data.fileName || data.file_name || null,
     file_size: data.fileSize || data.file_size || null,
     is_published: data.published !== undefined ? Boolean(data.published) : Boolean(data.is_published ?? true),
+    access_type: data.accessType || data.access_type || "free",
   };
 
   let { data: result, error } = await supabase
@@ -57,6 +58,7 @@ export const updateTestSeries = async (id, data) => {
   if (data.fileSize !== undefined || data.file_size !== undefined) payload.file_size = data.fileSize || data.file_size;
   if (data.published !== undefined) payload.is_published = Boolean(data.published);
   if (data.is_published !== undefined) payload.is_published = Boolean(data.is_published);
+  if (data.accessType !== undefined || data.access_type !== undefined) payload.access_type = data.accessType || data.access_type;
 
   let { error } = await supabase
     .from("test_series")
